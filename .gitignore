@@ -9,3 +9,13 @@ wheels/
 # Virtual environments
 .venv
 .scratch
+
+# Local config
+.env
+
+# Test artifacts
+.pytest_cache/
+
+# Generated data
+data/seed/*.csv
+data/output/*.txt
