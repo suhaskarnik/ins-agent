@@ -1,25 +1,35 @@
 # Architecture
 
-This document describes the triage pipeline as designed. The diagram below is hand-authored against the design; once the graph is implemented, `just diagram` regenerates it directly from the compiled LangGraph (`graph.get_graph().draw_mermaid()`) so it can never silently drift from the code.
+This document describes the triage pipeline. The diagram below is regenerated directly from the compiled LangGraph via `just diagram` (`graph.get_graph().draw_mermaid()`, written to `docs/graph.mmd`), so it can never silently drift from the code.
+
+As of ticket 04 (the walking skeleton), the graph implements Recall, Rank, Coverage Check, Eligibility Judgment, Sufficiency Assessment, Notification, and the Final Review Gate — enough for the clean-match path (tc001). Broadening and the Policy Selection Gate (tickets 05–06) still route through the same shape: today, an unresolved Policy Resolution or a failed Coverage Check/Eligibility Judgment routes straight to Notification → Final Review Gate.
 
 ## Pipeline
 
 ```mermaid
-flowchart TD
-    A[Intake: raw claim + policy details] --> B[Recall: LLM constructs a Policy search]
-    B --> C[Rank: deterministic weighted scoring]
-    C -->|below threshold, attempts remain| D[Broaden search: fixed sequence]
-    D --> B
-    C -->|below threshold, attempts exhausted| G[Final Review Gate]
-    C -->|single candidate or Perfect Score| E[Coverage Check + Eligibility Judgment]
-    C -->|multiple ambiguous candidates| F[Policy Selection Gate: human picks]
-    F -->|policy chosen| E
-    F -->|no selection made| G
-    E -->|ineligible| G
-    E -->|eligible| H[Sufficiency Assessment: LLM]
-    H --> G
-    G[Final Review Gate: human approves/rejects] -->|approved| I[Notification written to disk]
-    G -->|rejected| J[Run ends, nothing sent]
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	recall(recall)
+	rank(rank)
+	coverage_check(coverage_check)
+	eligibility_judgment(eligibility_judgment)
+	sufficiency_assessment(sufficiency_assessment)
+	notification(notification)
+	final_review_gate(final_review_gate)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> recall;
+	coverage_check --> eligibility_judgment;
+	eligibility_judgment -.-> notification;
+	eligibility_judgment -.-> sufficiency_assessment;
+	notification --> final_review_gate;
+	rank -.-> coverage_check;
+	rank -.-> notification;
+	recall --> rank;
+	sufficiency_assessment --> notification;
+	final_review_gate --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
 ```
 
 Every LLM-produced node output is validated at the model boundary via `with_structured_output` against a Pydantic schema — a malformed response is a validation error where it occurs, not a parsing bug three steps downstream.

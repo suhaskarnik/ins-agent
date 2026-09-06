@@ -1,0 +1,46 @@
+"""Rank: deterministic weighted scoring of Recall's candidates, and
+auto-resolution when the result is unambiguous.
+
+Auto-resolves to a single Policy on a Perfect Score, or when exactly one
+candidate clears the Match Threshold with no other candidate also clearing
+it. Anything else (multiple ambiguous candidates, or none above threshold)
+is left unresolved here — Broadening (ticket 05) and the Policy Selection
+Gate (ticket 06) handle those paths; this ticket's walking skeleton routes
+an unresolved result straight to the Final Review Gate.
+"""
+
+from ins_agent.config import get_settings
+from ins_agent.matching.rank import rank_score
+from ins_agent.models.policy import Policy
+from ins_agent.models.triage import RankedCandidate
+from ins_agent.state import TriageState
+
+
+def _auto_resolve(candidates: list[RankedCandidate], threshold: float) -> RankedCandidate | None:
+    perfect = [c for c in candidates if c.is_perfect]
+    if len(perfect) == 1:
+        return perfect[0]
+
+    above_threshold = [c for c in candidates if c.score >= threshold]
+    if len(above_threshold) == 1:
+        return above_threshold[0]
+
+    return None
+
+
+def rank(state: TriageState) -> dict[str, list[RankedCandidate] | Policy | float | None]:
+    query = state["intake"].search_query()
+    raw_candidates = state["raw_candidates"]
+    candidates = [rank_score(policy, query) for policy in raw_candidates]
+
+    resolved = _auto_resolve(candidates, get_settings().match_threshold)
+
+    return {
+        "candidates": candidates,
+        "resolved_policy": resolved.policy if resolved else None,
+        "policy_resolution_confidence": resolved.score if resolved else None,
+    }
+
+
+def route_after_rank(state: TriageState) -> str:
+    return "coverage_check" if state.get("resolved_policy") else "notification"

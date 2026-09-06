@@ -30,7 +30,7 @@ class FakeChatModel:
         self._invoke_fn = invoke_fn
         self.with_structured_output_calls: list[type] = []
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, **kwargs):
         self.with_structured_output_calls.append(schema)
         return FakeStructuredModel(self._invoke_fn)
 

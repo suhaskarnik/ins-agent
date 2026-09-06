@@ -1,0 +1,29 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	recall(recall)
+	rank(rank)
+	coverage_check(coverage_check)
+	eligibility_judgment(eligibility_judgment)
+	sufficiency_assessment(sufficiency_assessment)
+	notification(notification)
+	final_review_gate(final_review_gate)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> recall;
+	coverage_check -.-> eligibility_judgment;
+	coverage_check -.-> notification;
+	eligibility_judgment -.-> notification;
+	eligibility_judgment -.-> sufficiency_assessment;
+	notification --> final_review_gate;
+	rank -.-> coverage_check;
+	rank -.-> notification;
+	recall --> rank;
+	sufficiency_assessment --> notification;
+	final_review_gate --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

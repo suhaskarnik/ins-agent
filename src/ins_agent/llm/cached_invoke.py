@@ -16,8 +16,9 @@ import groq
 import openai
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from ins_agent.config import get_settings
 from ins_agent.db.cache import get_cached_response, store_response
 from ins_agent.llm.hashing import cache_key, prompt_hash
 from ins_agent.observability import get_langfuse_client
@@ -41,15 +42,25 @@ def _model_id(model: BaseChatModel) -> str:
     return f"{type(model).__name__}:{model_name}"
 
 
-@retry(
-    retry=retry_if_exception_type(TRANSIENT_PROVIDER_ERRORS),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    reraise=True,
-)
 def _invoke_structured(model: BaseChatModel, schema: type[SchemaT], prompt: str) -> SchemaT:
-    structured_model = model.with_structured_output(schema)
-    result = structured_model.invoke(prompt)
+    # `method="json_schema"` rather than the default (tool-calling): some
+    # providers/models (observed with Groq's `openai/gpt-oss-*` models) are
+    # unreliable at wrapping structured output in a forced tool call and
+    # raise a 400 even when the underlying content is well-formed JSON.
+    # json_schema mode asks for the same schema-validated output without
+    # going through tool-choice enforcement.
+    structured_model = model.with_structured_output(schema, method="json_schema")
+
+    # Built per-call (not as a `@retry` decorator) so `max_retry_attempts`
+    # is read from `Settings` fresh each time rather than baked in at
+    # import time.
+    retrying = Retrying(
+        retry=retry_if_exception_type(TRANSIENT_PROVIDER_ERRORS),
+        stop=stop_after_attempt(get_settings().max_retry_attempts),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        reraise=True,
+    )
+    result = retrying(structured_model.invoke, prompt)
     assert isinstance(result, schema)
     return result
 

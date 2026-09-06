@@ -15,11 +15,11 @@ from pathlib import Path
 from faker import Faker
 
 from ins_agent.db.connection import get_connection
+from ins_agent.paths import REPO_ROOT
 
 SEED = 42
 NUM_POLICIES = 40
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO_ROOT / "db" / "schema.sql"
 SEED_CSV_PATH = REPO_ROOT / "data" / "seed" / "policies.csv"
 

@@ -23,3 +23,19 @@ lint:
 # Type-check the codebase.
 typecheck:
     uv run mypy src
+
+# Run the interactive TUI: prompts for claim details field-by-field.
+run:
+    uv run python -m ins_agent.cli.run
+
+# Replay a Scenario's Intake Input non-interactively, end-to-end.
+run-scenario SCENARIO:
+    uv run python -m ins_agent.cli.run_scenario {{SCENARIO}}
+
+# Run the test suite.
+test:
+    uv run pytest
+
+# Regenerate docs/graph.mmd from the compiled LangGraph.
+diagram:
+    uv run python -m ins_agent.cli.diagram
