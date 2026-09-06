@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ins_agent
+          POSTGRES_PASSWORD: ins_agent
+          POSTGRES_DB: ins_agent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ins_agent -d ins_agent"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ins_agent
+      POSTGRES_PASSWORD: ins_agent
+      POSTGRES_DB: ins_agent
+      LANGFUSE_HOST: https://langfuse.example.com
+      LANGFUSE_PUBLIC_KEY: pk-lf-ci
+      LANGFUSE_SECRET_KEY: sk-lf-ci
+      LLM_PROVIDER: groq
+      GROQ_API_KEY: gsk_ci
+      MODEL_FAST: fast-model
+      MODEL_REASONING: reasoning-model
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Load schema
+        run: psql "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" -f db/schema.sql
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type-check
+        run: uv run mypy src
+
+      - name: Test
+        run: uv run pytest

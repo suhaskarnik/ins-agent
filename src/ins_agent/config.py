@@ -69,4 +69,13 @@ def get_settings() -> Settings:
 
 if __name__ == "__main__":
     settings = get_settings()
-    print(settings.model_dump(exclude={"groq_api_key", "openrouter_api_key", "langfuse_secret_key", "postgres_password"}))
+    print(
+        settings.model_dump(
+            exclude={
+                "groq_api_key",
+                "openrouter_api_key",
+                "langfuse_secret_key",
+                "postgres_password",
+            }
+        )
+    )

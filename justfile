@@ -15,3 +15,11 @@ seed:
 # Truncate the LLM response cache.
 cache-clear:
     uv run python -c "from ins_agent.db.cache import clear_cache; clear_cache()"
+
+# Lint the codebase.
+lint:
+    uv run ruff check .
+
+# Type-check the codebase.
+typecheck:
+    uv run mypy src
