@@ -1,35 +1,60 @@
-This project creates an insurance claim triage agent. Its job is to do the following:
+# Insurance Claim Triage Agent
 
-1. Intake a mocked input of Policy and Claim information. Both of these could be complete or incomplete. Imagine that a user has provided these details in a form while submitting the claim. They may provide correct, incorrect, complete or incomplete information
-2. An LLM searches the Policy in a PG Database. Depending on what was provided in the input, this could be a simple `WHERE policy_id = :input_policy_id` or be more involved. This optimises for recall
-3. A deterministic ranker optimises for precision by weight-wise scoring the provided inputs. An exact policy match with a name match receives a perfect score, others with proportionately lower weights. Use Jaro-Winkler and Metaphone and phone canonicalisation as well, assign proprtionately lower weights. A tunable threshold score is applied. Top N (configurable, default 3) ranks go forward. If all the results are low quality (below threshold), return to step 2. Repeat at most 3 times, and if no policy is found, trigger the final HITL. 
-4. If exactly 1 policy was ranked, or there is any policy with a perfect score, then pick that policy and go to the next step. Otherwise, invoke a human approval interrupt to select a single policy. Failure to choose a policy would trigger the final HITL step
-5. LLM checks eligibility of the claim for the policy. Use a processing guideline document that describes completeness reqs. This document should be part of the agent config, not provided by the user. Ineligible claims are routed to the final HITL step
-6. LLM checks documentation provided for the claim and assesses if docs provided are sufficient or incomplete 
-7. Final HITL step: LLM reports to a human operator about the outcome (claim is sufficient/incomplete, eligible/ineligible, policy found with high/low confidence), and suggests the next action along with the email comm wording. If human approves the action, then the email is triggered
-8. No concrete implementation of email required; just write the text to a temp dir and print the output
-9. No UI required; barebones TUI using input() statements is fine
+A LangGraph agent that triages an insurance claim submission end-to-end — resolving it against a policy database, checking eligibility, assessing documentation, and preparing a recommendation — then stops in front of a human before anything customer-facing goes out.
 
-Libraries used:
-- langgraph
-- langchain
-- pydantic (for structured outputs)
-- psycopg2
-- langfuse
+It's a proof of concept built to demonstrate a specific architectural stance: **push every decision that can be made deterministically out of the LLM's hands, reserve the LLM for the judgment calls that genuinely need it, and never let the two get presented to a human as if they carry the same weight.**
 
+Fake data throughout (a seeded Postgres database of ~40 policies, six scripted claim scenarios) — no real insurer, no real PII, no real emails sent.
 
-LLM Providers:
-- groq, with multiple models that will be selected in a `.env`. Should be swappable to openrouter without changing the rest of the code
-- model config should follow some classes, such as `model_high: ["claude opus 5", "gpt-5.6 sol"]`, with each archetype being chosen based on the task. This is to avoid expensive models being used for trivial tasks
-- the classes do not need to be literally called `model_high`, a different set of classnames can be chosen that is appropriate for this use case
+## Why this exists
 
+Most agent demos either do everything with an LLM (unreliable, unauditable) or do everything with rules (brittle, can't handle messy input). This project picks apart one realistic workflow — claim triage — and deliberately routes each step to whichever approach actually fits it:
 
-Key Principles:
-- no payment or comms go to the user before a human gate
-- to avoid overwhelming the human, ensure that most of the tedious searching and matching is done before the result reaches the human
-- to enable correct decision making, ensure that details provided to the human are valid. Ideally this should be deterministic, but when it is not, that should be clearly specified in the final output to the human verifier.  Deterministic and non-deterministic outputs should NOT be mixed and presented as though they are at equivalent levels of veracity
-- all LLM calls and outputs are logged using Langfuse
-- no credentials in code, use a `.env` file instead
-- all parameters like the tuning threshold, the model classes, Postgres hostname etc are in the .env file. Whenever the .env contract changes, a .env.example should be created/updated to reflect the reqd params
-- pass data across steps using structured Pydantic objects. Avoid plaintext except at entry, to prevent injection attacks
-- system prompts to be managed as MD files in the repo, and git-versioned
+| Step | Approach | Why |
+|---|---|---|
+| Find candidate policies from messy input | LLM | Input can be incomplete, misspelled, or wrong — needs judgment to construct a search |
+| Score how well each candidate matches | Deterministic (Jaro-Winkler, Metaphone, phone canonicalization) | A match score should be reproducible and explainable, not vibes |
+| Retry a failed search | Deterministic, fixed sequence | The retry path should never surprise anyone — see [ADR-0001](docs/adr/0001-deterministic-broadening.md) |
+| Pick between ambiguous candidates | Human | Nobody should let an LLM guess which of two people filed a claim |
+| Check coverage limits / dates | Deterministic | It's arithmetic, not judgment |
+| Assess eligibility against guidelines | LLM | Genuinely requires reading unstructured criteria and reasoning about fit — kept separate from the arithmetic, never blended: [ADR-0002](docs/adr/0002-eligibility-split.md) |
+| Assess document sufficiency | LLM | Judging whether a *set* of documents satisfies a requirement is a reasoning task |
+| Approve the outcome and send anything | Human | Always. No payment or communication reaches a customer without a human gate |
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full pipeline diagram, data model, and the reasoning behind each notable decision. The original requirements this project was built from are preserved in [SPEC.md](SPEC.md).
+
+The domain vocabulary (Policy vs. Claimant vs. Policy Holder, Recall vs. Rank, Coverage Check vs. Eligibility Judgment, etc.) is defined in [CONTEXT.md](CONTEXT.md) — worth a skim before reading the code, since the code uses these terms precisely.
+
+## Stack
+
+- **LangGraph** — the triage pipeline, including two durable human-in-the-loop interrupts backed by a Postgres checkpointer
+- **LangChain** — model access, structured output enforcement (`with_structured_output` everywhere an LLM produces a step's result)
+- **Groq**, swappable to OpenRouter via one `.env` variable, with model selection abstracted behind two tiers (`model_fast` / `model_reasoning`) rather than hardcoded model names
+- **Postgres** (local, via `podman-compose`) — policy/claim data, the LangGraph checkpointer, and a content-addressed LLM response cache
+- **Langfuse** (your own instance, via `.env`) — every LLM call traced, including cache hits
+- **Pydantic** / **pydantic-settings** — structured data at every boundary, including config
+- **uv** for package management, **just** for task automation
+
+## Quickstart
+
+```bash
+just up             # start local Postgres via podman-compose
+just seed           # load fake policy data
+just run-scenario tc001   # run one scripted scenario through the full pipeline
+```
+
+Or `just run` for an interactive TUI that prompts for claim details the way a real intake form would.
+
+Six scenarios ship in `data/tests/` (`tc001`–`tc006`), each exercising a different branch of the graph — clean match, fuzzy match, ambiguous match requiring human selection, no match found, ineligible claim, insufficient documentation. `just test` runs all of them as a regression suite.
+
+Every drafted customer notification is written to `data/output/` as plain text instead of actually being sent — see [CONTEXT.md](CONTEXT.md#final-review) for why.
+
+## Status
+
+Design and domain model complete; implementation in progress. This README will gain a demo recording once the pipeline is runnable end-to-end.
+
+## License
+
+MIT
