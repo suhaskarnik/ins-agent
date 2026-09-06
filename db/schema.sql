@@ -25,3 +25,14 @@ CREATE TABLE IF NOT EXISTS claim (
     requested_amount    NUMERIC(12, 2) NOT NULL,
     documents           JSONB NOT NULL DEFAULT '[]'
 );
+
+-- Content-addressed cache for structured LLM responses. `cache_key` is
+-- sha256(model_id + rendered_prompt + output_schema_name); since the key is
+-- content-addressed, entries never go stale and there is no TTL.
+CREATE TABLE IF NOT EXISTS llm_cache (
+    cache_key       TEXT PRIMARY KEY,
+    model           TEXT NOT NULL,
+    prompt_hash     TEXT NOT NULL,
+    response_json   JSONB NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);

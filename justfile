@@ -11,3 +11,7 @@ down:
 # Regenerate the fixed-seed fake Policy dataset and load it into Postgres.
 seed:
     uv run python -m ins_agent.db.seed
+
+# Truncate the LLM response cache.
+cache-clear:
+    uv run python -c "from ins_agent.db.cache import clear_cache; clear_cache()"

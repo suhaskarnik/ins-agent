@@ -12,10 +12,9 @@ import csv
 import random
 from pathlib import Path
 
-import psycopg2
 from faker import Faker
 
-from ins_agent.config import get_settings
+from ins_agent.db.connection import get_connection
 
 SEED = 42
 NUM_POLICIES = 40
@@ -82,8 +81,7 @@ def write_csv(policies: list[dict], path: Path = SEED_CSV_PATH) -> None:
 
 
 def load_into_postgres(csv_path: Path = SEED_CSV_PATH) -> None:
-    settings = get_settings()
-    with psycopg2.connect(settings.postgres_dsn) as conn:
+    with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(SCHEMA_PATH.read_text())
             cur.execute("TRUNCATE TABLE claim, policy")
