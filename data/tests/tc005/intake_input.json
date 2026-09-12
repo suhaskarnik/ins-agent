@@ -1,0 +1,17 @@
+{
+  "_scenario": "tc005 — resolves to a real Policy (POL-00005, Perfect Score) but fails the deterministic Coverage Check: requested_amount (42000.00) exceeds the Policy's coverage_limit (25000). Coverage Check failure alone is enough to route straight to the Final Review Gate, skipping both the Eligibility Judgment and Sufficiency Assessment.",
+  "policy_id": "POL-00005",
+  "holder_name": "Pamela Romero",
+  "phone": "148-932-5288",
+  "dob": "2000-05-27",
+  "claimant_name": "Pamela Romero",
+  "claimant_phone": "148-932-5288",
+  "incident_date": "2025-06-15",
+  "description": "Vehicle declared a total loss after a multi-car collision on the interstate.",
+  "requested_amount": "42000.00",
+  "documents": [
+    {"doc_type": "police_report", "filename": "police_report.pdf", "present": true},
+    {"doc_type": "photos", "filename": "collision_photos.zip", "present": true},
+    {"doc_type": "repair_estimate", "filename": "total_loss_estimate.pdf", "present": true}
+  ]
+}
