@@ -7,10 +7,12 @@ calls from a content-addressed Postgres cache, retries transient provider
 failures with backoff (and lets a still-failing call raise rather than
 silently reaching the human as if it were a normal judgment outcome), and
 logs a Langfuse generation span for every call — hit or miss — tagged
-`cache_hit`.
+`cache_hit`, with token `usage_details` attached (zeroed on a cache hit,
+since no provider call was made) so Langfuse can price it.
 """
 
-from typing import TypeVar
+from dataclasses import dataclass
+from typing import Any, TypeVar, cast
 
 import groq
 import openai
@@ -24,6 +26,15 @@ from ins_agent.llm.hashing import cache_key, prompt_hash
 from ins_agent.observability import get_langfuse_client
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
+
+ZERO_USAGE_DETAILS = {"input": 0, "output": 0}
+
+
+@dataclass
+class StructuredResult[SchemaT: BaseModel]:
+    parsed: SchemaT
+    usage_details: dict[str, int]
+
 
 TRANSIENT_PROVIDER_ERRORS = (
     groq.APIConnectionError,
@@ -42,14 +53,28 @@ def _model_id(model: BaseChatModel) -> str:
     return f"{type(model).__name__}:{model_name}"
 
 
-def _invoke_structured(model: BaseChatModel, schema: type[SchemaT], prompt: str) -> SchemaT:
+def _usage_details(raw_message) -> dict[str, int]:
+    usage = getattr(raw_message, "usage_metadata", None) or {}
+    return {
+        "input": usage.get("input_tokens", 0),
+        "output": usage.get("output_tokens", 0),
+    }
+
+
+def _invoke_structured(
+    model: BaseChatModel, schema: type[SchemaT], prompt: str
+) -> StructuredResult[SchemaT]:
     # `method="json_schema"` rather than the default (tool-calling): some
     # providers/models (observed with Groq's `openai/gpt-oss-*` models) are
     # unreliable at wrapping structured output in a forced tool call and
     # raise a 400 even when the underlying content is well-formed JSON.
     # json_schema mode asks for the same schema-validated output without
     # going through tool-choice enforcement.
-    structured_model = model.with_structured_output(schema, method="json_schema")
+    #
+    # `include_raw=True` so the raw `AIMessage` (and its `usage_metadata`)
+    # survives alongside the validated object — needed to report token
+    # usage/cost to Langfuse.
+    structured_model = model.with_structured_output(schema, method="json_schema", include_raw=True)
 
     # Built per-call (not as a `@retry` decorator) so `max_retry_attempts`
     # is read from `Settings` fresh each time rather than baked in at
@@ -60,9 +85,12 @@ def _invoke_structured(model: BaseChatModel, schema: type[SchemaT], prompt: str)
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
     )
-    result = retrying(structured_model.invoke, prompt)
-    assert isinstance(result, schema)
-    return result
+    response = cast(dict[str, Any], retrying(structured_model.invoke, prompt))
+    if response["parsing_error"] is not None:
+        raise response["parsing_error"]
+    parsed = response["parsed"]
+    assert isinstance(parsed, schema)
+    return StructuredResult(parsed=parsed, usage_details=_usage_details(response["raw"]))
 
 
 def cached_invoke(model: BaseChatModel, prompt: str, schema: type[SchemaT]) -> SchemaT:
@@ -82,7 +110,9 @@ def cached_invoke(model: BaseChatModel, prompt: str, schema: type[SchemaT]) -> S
             metadata={"cache_hit": True},
         ) as generation:
             result = schema.model_validate(cached)
-            generation.update(output=result.model_dump(mode="json"))
+            generation.update(
+                output=result.model_dump(mode="json"), usage_details=ZERO_USAGE_DETAILS
+            )
         return result
 
     with langfuse.start_as_current_observation(
@@ -92,9 +122,13 @@ def cached_invoke(model: BaseChatModel, prompt: str, schema: type[SchemaT]) -> S
         input=prompt,
         metadata={"cache_hit": False},
     ) as generation:
-        result = _invoke_structured(model, schema, prompt)
-        response_json = result.model_dump(mode="json")
+        try:
+            structured = _invoke_structured(model, schema, prompt)
+        except Exception as exc:
+            generation.update(level="ERROR", status_message=str(exc))
+            raise
+        response_json = structured.parsed.model_dump(mode="json")
         store_response(key, model_id, prompt_hash(prompt), response_json)
-        generation.update(output=response_json)
+        generation.update(output=response_json, usage_details=structured.usage_details)
 
-    return result
+    return structured.parsed

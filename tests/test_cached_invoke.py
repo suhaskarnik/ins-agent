@@ -15,12 +15,22 @@ class DummySchema(BaseModel):
     value: str
 
 
+class FakeAIMessage:
+    def __init__(self, usage_metadata=None):
+        self.usage_metadata = usage_metadata
+
+
 class FakeStructuredModel:
     def __init__(self, invoke_fn):
         self._invoke_fn = invoke_fn
 
     def invoke(self, prompt):
-        return self._invoke_fn(prompt)
+        parsed = self._invoke_fn(prompt)
+        return {
+            "raw": FakeAIMessage(usage_metadata={"input_tokens": 10, "output_tokens": 5}),
+            "parsed": parsed,
+            "parsing_error": None,
+        }
 
 
 class FakeChatModel:
@@ -46,11 +56,13 @@ class FakeGeneration:
 class FakeLangfuseClient:
     def __init__(self):
         self.observations: list[dict] = []
+        self.last_generation: FakeGeneration | None = None
 
     @contextmanager
     def start_as_current_observation(self, **kwargs):
         self.observations.append(kwargs)
-        yield FakeGeneration()
+        self.last_generation = FakeGeneration()
+        yield self.last_generation
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +89,20 @@ def test_cache_hit_skips_the_model_and_returns_validated_object(monkeypatch, fak
     assert fake_langfuse.observations[0]["metadata"] == {"cache_hit": True}
 
 
+def test_cache_hit_reports_zero_usage(monkeypatch, fake_langfuse):
+    monkeypatch.setattr(
+        cached_invoke_module, "get_cached_response", lambda key: {"value": "cached"}
+    )
+    monkeypatch.setattr(cached_invoke_module, "store_response", MagicMock())
+
+    model = FakeChatModel(invoke_fn=lambda prompt: DummySchema(value="should-not-be-called"))
+
+    cached_invoke(model, "find the policy", DummySchema)
+
+    generation = fake_langfuse.last_generation
+    assert generation.updates[-1]["usage_details"] == {"input": 0, "output": 0}
+
+
 def test_cache_miss_calls_the_model_and_stores_the_response(monkeypatch, fake_langfuse):
     monkeypatch.setattr(cached_invoke_module, "get_cached_response", lambda key: None)
     store_mock = MagicMock()
@@ -94,6 +120,10 @@ def test_cache_miss_calls_the_model_and_stores_the_response(monkeypatch, fake_la
     assert args[0] == expected_key
     assert args[3] == {"value": "fresh"}
     assert fake_langfuse.observations[0]["metadata"] == {"cache_hit": False}
+    assert fake_langfuse.last_generation.updates[-1]["usage_details"] == {
+        "input": 10,
+        "output": 5,
+    }
 
 
 def test_transient_provider_errors_retry_then_succeed(monkeypatch, fake_langfuse):
@@ -133,3 +163,20 @@ def test_non_transient_errors_are_not_retried(monkeypatch, fake_langfuse):
         cached_invoke(model, "find the policy", DummySchema)
 
     assert calls["count"] == 1
+
+
+def test_failed_call_still_updates_the_generation(monkeypatch, fake_langfuse):
+    monkeypatch.setattr(cached_invoke_module, "get_cached_response", lambda key: None)
+    monkeypatch.setattr(cached_invoke_module, "store_response", MagicMock())
+
+    def always_fails(prompt):
+        raise ValueError("malformed structured output")
+
+    model = FakeChatModel(invoke_fn=always_fails)
+
+    with pytest.raises(ValueError):
+        cached_invoke(model, "find the policy", DummySchema)
+
+    generation = fake_langfuse.last_generation
+    assert len(generation.updates) == 1
+    assert generation.updates[0]["level"] == "ERROR"
