@@ -2,6 +2,11 @@
 -- Idempotent: safe to run against a fresh database or re-run against an
 -- existing one (`just seed` runs this before loading data every time).
 
+-- Powers Recall's name-only fuzzy Broadening attempt (ADR-0001): the `%`
+-- similarity operator and `similarity()` function used in
+-- `find_policies_fuzzy_name`.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TABLE IF NOT EXISTS policy (
     policy_id       TEXT PRIMARY KEY,
     holder_name     TEXT NOT NULL,

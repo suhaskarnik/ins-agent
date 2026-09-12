@@ -3,16 +3,19 @@ auto-resolution when the result is unambiguous.
 
 Auto-resolves to a single Policy on a Perfect Score, or when exactly one
 candidate clears the Match Threshold with no other candidate also clearing
-it. Anything else (multiple ambiguous candidates, or none above threshold)
-is left unresolved here — Broadening (ticket 05) and the Policy Selection
-Gate (ticket 06) handle those paths; this ticket's walking skeleton routes
-an unresolved result straight to the Final Review Gate.
+it. When nothing clears the threshold and Recall's Broadening budget
+(`MAX_RECALL_ATTEMPTS`, ADR-0001) isn't exhausted, routes back to Recall for
+another attempt. Anything else left unresolved (multiple ambiguous
+candidates, or a broadening budget that's exhausted) routes straight to the
+Final Review Gate — the Policy Selection Gate (ticket 06) will replace that
+fallback.
 """
 
 from ins_agent.config import get_settings
 from ins_agent.matching.rank import rank_score
 from ins_agent.models.policy import Policy
 from ins_agent.models.triage import RankedCandidate
+from ins_agent.nodes.recall import MAX_RECALL_ATTEMPTS
 from ins_agent.state import TriageState
 
 
@@ -43,4 +46,14 @@ def rank(state: TriageState) -> dict[str, list[RankedCandidate] | Policy | float
 
 
 def route_after_rank(state: TriageState) -> str:
-    return "coverage_check" if state.get("resolved_policy") else "notification"
+    if state.get("resolved_policy"):
+        return "coverage_check"
+
+    candidates = state.get("candidates") or []
+    threshold = get_settings().match_threshold
+    cleared_threshold = any(c.score >= threshold for c in candidates)
+    attempt = state.get("recall_attempt", 0)
+
+    if not cleared_threshold and attempt < MAX_RECALL_ATTEMPTS:
+        return "recall"
+    return "notification"

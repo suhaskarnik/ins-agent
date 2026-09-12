@@ -1,11 +1,12 @@
 """Builds and compiles the triage LangGraph.
 
-This ticket's walking skeleton wires every node the pipeline ultimately
-needs, but only fully implements the paths tc001 (clean match, eligible,
-sufficient) exercises: an unresolved Policy Resolution or a failed
-Coverage Check/Eligibility Judgment routes straight to the Final Review
-Gate, rather than through Broadening or the Policy Selection Gate — those
-are ticket 05 and ticket 06's job to insert into this same shape.
+Ticket 04's walking skeleton wired every node the pipeline ultimately
+needs but only fully implemented tc001's clean-match path. Ticket 05 adds
+the recall <-> rank Broadening loop (ADR-0001): `rank` may route back to
+`recall` for another attempt when nothing clears the Match Threshold.
+Multiple ambiguous candidates, or an exhausted Broadening budget, still
+route straight to the Final Review Gate rather than through the Policy
+Selection Gate — that's ticket 06's job to insert into this same shape.
 """
 
 from typing import Any
@@ -36,7 +37,9 @@ def build_graph(checkpointer: Any) -> CompiledStateGraph:
 
     builder.add_edge(START, "recall")
     builder.add_edge("recall", "rank")
-    builder.add_conditional_edges("rank", route_after_rank, ["coverage_check", "notification"])
+    builder.add_conditional_edges(
+        "rank", route_after_rank, ["coverage_check", "recall", "notification"]
+    )
     builder.add_conditional_edges(
         "coverage_check", route_after_coverage_check, ["eligibility_judgment", "notification"]
     )

@@ -21,6 +21,7 @@ graph TD;
 	notification --> final_review_gate;
 	rank -.-> coverage_check;
 	rank -.-> notification;
+	rank -.-> recall;
 	recall --> rank;
 	sufficiency_assessment --> notification;
 	final_review_gate --> __end__;

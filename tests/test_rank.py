@@ -79,3 +79,21 @@ def test_no_query_fields_scores_zero():
     result = rank_score(POLICY, PolicySearchQuery())
     assert result.score == 0.0
     assert not result.is_perfect
+
+
+def test_typo_name_with_matching_policy_id_phone_and_dob_still_clears_threshold():
+    # Mirrors tc002's fuzzy-match Scenario: Recall's final Broadening attempt
+    # (name-only fuzzy) surfaces this Policy as a candidate despite the
+    # typo, and Rank still scores it against the full original query — the
+    # correct policy_id, phone, and DOB push a merely-similar name well
+    # above the Match Threshold even though it isn't a Perfect Score.
+    query = PolicySearchQuery(
+        policy_id="POL-00002",
+        holder_name="Brent Abott",
+        phone="940-781-6184",
+        dob=date(1964, 11, 2),
+    )
+    result = rank_score(POLICY, query)
+    assert result.score >= 0.7
+    assert not result.name_exact
+    assert not result.is_perfect

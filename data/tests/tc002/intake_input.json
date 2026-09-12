@@ -1,0 +1,15 @@
+{
+  "policy_id": "POL-00002",
+  "holder_name": "Brent Abott",
+  "phone": "940-781-6184",
+  "dob": "1964-11-02",
+  "claimant_name": "Brent Abott",
+  "claimant_phone": "940-781-6184",
+  "incident_date": "2025-09-10",
+  "description": "Rear windshield cracked by a fallen tree branch during a storm.",
+  "requested_amount": "3200.00",
+  "documents": [
+    {"doc_type": "photos", "filename": "damage_photo_1.jpg", "present": true},
+    {"doc_type": "repair_estimate", "filename": "estimate_glassco.pdf", "present": true}
+  ]
+}

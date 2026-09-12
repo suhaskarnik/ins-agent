@@ -2,7 +2,7 @@
 
 This document describes the triage pipeline. The diagram below is regenerated directly from the compiled LangGraph via `just diagram` (`graph.get_graph().draw_mermaid()`, written to `docs/graph.mmd`), so it can never silently drift from the code.
 
-As of ticket 04 (the walking skeleton), the graph implements Recall, Rank, Coverage Check, Eligibility Judgment, Sufficiency Assessment, Notification, and the Final Review Gate — enough for the clean-match path (tc001). Broadening and the Policy Selection Gate (tickets 05–06) still route through the same shape: today, an unresolved Policy Resolution or a failed Coverage Check/Eligibility Judgment routes straight to Notification → Final Review Gate.
+As of ticket 05, the graph implements Recall, Rank, Coverage Check, Eligibility Judgment, Sufficiency Assessment, Notification, and the Final Review Gate, plus the Broadening loop between Recall and Rank (tc001's clean match, tc002's fuzzy match). The Policy Selection Gate (ticket 06) still routes through the same shape: today, multiple ambiguous candidates or an exhausted Broadening budget route straight to Notification → Final Review Gate.
 
 ## Pipeline
 
@@ -18,12 +18,14 @@ graph TD;
 	final_review_gate(final_review_gate)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> recall;
-	coverage_check --> eligibility_judgment;
+	coverage_check -.-> eligibility_judgment;
+	coverage_check -.-> notification;
 	eligibility_judgment -.-> notification;
 	eligibility_judgment -.-> sufficiency_assessment;
 	notification --> final_review_gate;
 	rank -.-> coverage_check;
 	rank -.-> notification;
+	rank -.-> recall;
 	recall --> rank;
 	sufficiency_assessment --> notification;
 	final_review_gate --> __end__;
