@@ -1,18 +1,87 @@
-"""Final Review Gate: the terminal human-in-the-loop interrupt.
+"""The two human-in-the-loop interrupts: the Policy Selection Gate and the
+terminal Final Review Gate.
 
-Presents Policy Resolution confidence, the Coverage Check result, the
-Eligibility Judgment, and the Sufficiency Assessment — each labeled
-deterministic fact or LLM judgment — plus the drafted Notification.
-Approving writes the Notification to disk; rejecting ends the run with
-nothing written. No edit-and-resubmit loop — approve/reject only.
+Policy Selection Gate (`policy_selection_gate`): reached when Rank leaves
+multiple candidates unresolved (see `route_after_rank`) — every ambiguous
+candidate is shown with its full field values, Rank Score, and which
+specific fields matched or mismatched, so the human never has to pick from
+a bare list of Policy IDs. The human either resumes with one candidate's
+`policy_id` (which becomes the resolved Policy) or with `"decline"`, which
+leaves the Policy unresolved and proceeds straight to the Final Review Gate
+exactly like any other unresolved-Policy run — not a crash or silent
+default.
+
+Final Review Gate (`final_review_gate`): the terminal interrupt. Presents
+Policy Resolution confidence, the Coverage Check result, the Eligibility
+Judgment, and the Sufficiency Assessment — each labeled deterministic fact
+or LLM judgment — plus the drafted Notification. Approving writes the
+Notification to disk; rejecting ends the run with nothing written. No
+edit-and-resubmit loop — approve/reject only.
+
+Both interrupts pause via LangGraph's `interrupt()`, which durably survives
+a process restart through the Postgres checkpointer — see ADR-0003.
 """
 
 from typing import Any
 
 from langgraph.types import interrupt
 
+from ins_agent.models.triage import RankedCandidate
 from ins_agent.output import write_notification
 from ins_agent.state import TriageState
+
+
+def _candidate_payload(candidate: RankedCandidate) -> dict[str, Any]:
+    policy = candidate.policy
+    return {
+        "policy_id": policy.policy_id,
+        "holder_name": policy.holder_name,
+        "phone": policy.phone,
+        "address": policy.address,
+        "dob": policy.dob.isoformat(),
+        "product_type": policy.product_type,
+        "coverage_start": policy.coverage_start.isoformat(),
+        "coverage_end": policy.coverage_end.isoformat(),
+        "coverage_limit": str(policy.coverage_limit),
+        "status": policy.status,
+        "score": candidate.score,
+        "matched_fields": {
+            "policy_id": candidate.policy_id_exact,
+            "holder_name": candidate.name_exact,
+            "phone": candidate.phone_exact,
+            "dob": candidate.dob_exact,
+        },
+    }
+
+
+def _resolve_decision(
+    candidates: list[RankedCandidate], decision: str
+) -> dict[str, Any]:
+    if decision == "decline":
+        return {"resolved_policy": None, "policy_resolution_confidence": None}
+
+    selected = next((c for c in candidates if c.policy.policy_id == decision), None)
+    if selected is None:
+        raise ValueError(
+            f"Policy Selection Gate: decision {decision!r} is neither 'decline' nor "
+            f"one of the candidate policy_ids {[c.policy.policy_id for c in candidates]!r}"
+        )
+    return {"resolved_policy": selected.policy, "policy_resolution_confidence": selected.score}
+
+
+def policy_selection_gate(state: TriageState) -> dict[str, Any]:
+    candidates = state.get("candidates") or []
+    payload = {
+        "gate": "policy_selection",
+        "claim_id": state["claim_id"],
+        "candidates": [_candidate_payload(c) for c in candidates],
+    }
+    decision = interrupt(payload)
+    return _resolve_decision(candidates, decision)
+
+
+def route_after_policy_selection_gate(state: TriageState) -> str:
+    return "coverage_check" if state.get("resolved_policy") else "notification"
 
 
 def _build_payload(state: TriageState) -> dict[str, Any]:
@@ -24,6 +93,7 @@ def _build_payload(state: TriageState) -> dict[str, Any]:
     assert notification is not None
 
     return {
+        "gate": "final_review",
         "claim_id": state["claim_id"],
         "policy_resolution": {
             "kind": "deterministic",

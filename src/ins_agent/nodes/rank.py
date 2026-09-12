@@ -5,10 +5,11 @@ Auto-resolves to a single Policy on a Perfect Score, or when exactly one
 candidate clears the Match Threshold with no other candidate also clearing
 it. When nothing clears the threshold and Recall's Broadening budget
 (`MAX_RECALL_ATTEMPTS`, ADR-0001) isn't exhausted, routes back to Recall for
-another attempt. Anything else left unresolved (multiple ambiguous
-candidates, or a broadening budget that's exhausted) routes straight to the
-Final Review Gate — the Policy Selection Gate (ticket 06) will replace that
-fallback.
+another attempt. Once Recall/Rank is done retrying and more than one
+candidate is still in play — whether or not any of them individually
+cleared the threshold — routes to the Policy Selection Gate so a human
+picks. A single leftover candidate, or none at all, has nothing to
+disambiguate and routes straight to the Final Review Gate instead.
 """
 
 from ins_agent.config import get_settings
@@ -56,4 +57,6 @@ def route_after_rank(state: TriageState) -> str:
 
     if not cleared_threshold and attempt < MAX_RECALL_ATTEMPTS:
         return "recall"
+    if len(candidates) >= 2:
+        return "policy_selection_gate"
     return "notification"

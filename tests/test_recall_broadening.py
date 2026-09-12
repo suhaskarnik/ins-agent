@@ -1,6 +1,7 @@
 """Unit tests for `route_after_rank`'s Broadening decision (ADR-0001) —
-whether to loop back to Recall, proceed to Coverage Check, or fall through
-to the Final Review Gate. Pure state-dict manipulation; no DB or LLM.
+whether to loop back to Recall, proceed to Coverage Check, fall through to
+the Policy Selection Gate, or fall through to the Final Review Gate. Pure
+state-dict manipulation; no DB or LLM.
 """
 
 from datetime import date
@@ -54,15 +55,29 @@ def test_nothing_above_threshold_falls_through_once_attempts_are_exhausted():
     assert route_after_rank(state) == "notification"
 
 
-def test_ambiguous_candidates_above_threshold_fall_through_without_looping():
+def test_ambiguous_candidates_above_threshold_route_to_policy_selection_gate():
     state = {
         "resolved_policy": None,
         "candidates": [_candidate(0.8), _candidate(0.75)],
         "recall_attempt": 1,
     }
-    assert route_after_rank(state) == "notification"
+    assert route_after_rank(state) == "policy_selection_gate"
 
 
 def test_no_candidates_at_all_loops_back_to_recall_when_attempts_remain():
     state = {"resolved_policy": None, "candidates": [], "recall_attempt": 1}
     assert route_after_rank(state) == "recall"
+
+
+def test_no_candidates_at_all_falls_through_once_attempts_are_exhausted():
+    state = {"resolved_policy": None, "candidates": [], "recall_attempt": MAX_RECALL_ATTEMPTS}
+    assert route_after_rank(state) == "notification"
+
+
+def test_multiple_candidates_still_below_threshold_route_to_policy_selection_gate_once_exhausted():
+    state = {
+        "resolved_policy": None,
+        "candidates": [_candidate(0.4), _candidate(0.35)],
+        "recall_attempt": MAX_RECALL_ATTEMPTS,
+    }
+    assert route_after_rank(state) == "policy_selection_gate"

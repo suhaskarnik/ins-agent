@@ -1,0 +1,12 @@
+{
+  "holder_name": "Jordan Ellison",
+  "claimant_name": "Jordan Ellison",
+  "claimant_phone": "212-555-0141",
+  "incident_date": "2025-06-15",
+  "description": "Side mirror snapped off in a parking lot collision.",
+  "requested_amount": "800.00",
+  "documents": [
+    {"doc_type": "photos", "filename": "mirror_damage.jpg", "present": true},
+    {"doc_type": "repair_estimate", "filename": "estimate_autoshop.pdf", "present": true}
+  ]
+}

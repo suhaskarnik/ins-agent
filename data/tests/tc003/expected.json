@@ -1,0 +1,8 @@
+{
+  "resolved_policy_id": "POL-00041",
+  "policy_resolution_confidence": 0.3,
+  "coverage_check_covered": true,
+  "eligibility_judgment_eligible": true,
+  "sufficiency_assessment_sufficient": true,
+  "final_decision": "approve"
+}

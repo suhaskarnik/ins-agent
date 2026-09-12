@@ -46,6 +46,38 @@ FIELDNAMES = [
 ]
 
 
+# Fixed (never Faker-generated) so they're stable across `just seed` runs.
+# tc003 relies on the two POL-00041/POL-00042 rows sharing a holder_name —
+# a Recall exact-match on that name alone returns both, giving Rank
+# multiple candidates to leave ambiguous for the Policy Selection Gate.
+FIXTURE_POLICIES = [
+    {
+        "policy_id": "POL-00041",
+        "holder_name": "Jordan Ellison",
+        "phone": "212-555-0141",
+        "address": "88 Corbin Row, Millhaven, OH 44107",
+        "dob": "1979-02-14",
+        "product_type": "Auto - Comprehensive",
+        "coverage_start": "2025-01-01",
+        "coverage_end": "2026-01-01",
+        "coverage_limit": "50000",
+        "status": "active",
+    },
+    {
+        "policy_id": "POL-00042",
+        "holder_name": "Jordan Ellison",
+        "phone": "212-555-0142",
+        "address": "410 Preston Alley, Millhaven, OH 44108",
+        "dob": "1991-07-30",
+        "product_type": "Auto - Liability",
+        "coverage_start": "2025-01-01",
+        "coverage_end": "2026-01-01",
+        "coverage_limit": "25000",
+        "status": "active",
+    },
+]
+
+
 def generate_policies(n: int = NUM_POLICIES, seed: int = SEED) -> list[dict]:
     Faker.seed(seed)
     fake = Faker()
@@ -97,7 +129,17 @@ def load_into_postgres(csv_path: Path = SEED_CSV_PATH) -> None:
 
 
 def main() -> None:
-    policies = generate_policies()
+    generated = generate_policies()
+    fixture_ids = {p["policy_id"] for p in FIXTURE_POLICIES}
+    generated_ids = {p["policy_id"] for p in generated}
+    collisions = fixture_ids & generated_ids
+    if collisions:
+        raise ValueError(
+            f"FIXTURE_POLICIES ids collide with generate_policies() output: {sorted(collisions)} "
+            "— renumber the fixture ids or lower NUM_POLICIES"
+        )
+
+    policies = generated + FIXTURE_POLICIES
     write_csv(policies)
     load_into_postgres()
     print(f"Seeded {len(policies)} policies into Postgres from {SEED_CSV_PATH}")
