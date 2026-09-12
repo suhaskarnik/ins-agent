@@ -64,9 +64,12 @@ def render_final_review_gate(payload: dict[str, Any]) -> str:
 
     resolution = payload["policy_resolution"]
     lines.append("\n[deterministic fact] Policy Resolution")
-    lines.append(f"  resolved:   {resolution['resolved']}")
-    lines.append(f"  policy_id:  {resolution['policy_id']}")
-    lines.append(f"  confidence: {resolution['confidence']}")
+    if resolution["resolved"]:
+        lines.append(f"  resolved:   {resolution['resolved']}")
+        lines.append(f"  policy_id:  {resolution['policy_id']}")
+        lines.append(f"  confidence: {resolution['confidence']}")
+    else:
+        lines.append("  no Policy found (low confidence)")
 
     coverage = payload["coverage_check"]
     lines.append("\n[deterministic fact] Coverage Check")

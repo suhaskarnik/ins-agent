@@ -1,0 +1,13 @@
+{
+  "holder_name": "Xerpliq Vodrask",
+  "claimant_name": "Xerpliq Vodrask",
+  "claimant_phone": "000-000-0000",
+  "phone": "000-000-0000",
+  "dob": "1900-01-01",
+  "incident_date": "2025-05-01",
+  "description": "Windshield cracked by road debris on the highway.",
+  "requested_amount": "450.00",
+  "documents": [
+    {"doc_type": "photos", "filename": "windshield_damage.jpg", "present": true}
+  ]
+}

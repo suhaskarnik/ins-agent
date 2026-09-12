@@ -1,0 +1,8 @@
+{
+  "resolved_policy_id": null,
+  "policy_resolution_confidence": null,
+  "coverage_check_covered": null,
+  "eligibility_judgment_eligible": null,
+  "sufficiency_assessment_sufficient": null,
+  "final_decision": "approve"
+}
