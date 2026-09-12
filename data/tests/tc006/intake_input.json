@@ -1,0 +1,16 @@
+{
+  "_scenario": "tc006 — resolves to a real, eligible Policy (POL-00018, Auto - Collision, Perfect Score) that passes the Coverage Check and Eligibility Judgment, but omits `repair_estimate`, one of the three document types the guideline requires for Auto - Collision (police_report, photos, repair_estimate). Expected to fail the Sufficiency Assessment with that gap called out.",
+  "policy_id": "POL-00018",
+  "holder_name": "Guy Molina",
+  "phone": "688-937-3467",
+  "dob": "1953-01-20",
+  "claimant_name": "Guy Molina",
+  "claimant_phone": "688-937-3467",
+  "incident_date": "2025-07-01",
+  "description": "Rear-ended another vehicle at a stoplight, causing damage to the front bumper and hood.",
+  "requested_amount": "4200.00",
+  "documents": [
+    {"doc_type": "police_report", "filename": "police_report.pdf", "present": true},
+    {"doc_type": "photos", "filename": "bumper_damage.jpg", "present": true}
+  ]
+}
