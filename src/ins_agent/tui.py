@@ -45,12 +45,16 @@ def render_policy_selection_gate(payload: dict[str, Any]) -> str:
 
 def prompt_policy_selection(payload: dict[str, Any]) -> str:
     valid_ids = {candidate["policy_id"] for candidate in payload["candidates"]}
+    by_lower = {policy_id.lower(): policy_id for policy_id in valid_ids}
     while True:
         answer = input(
             f"Select a policy_id ({', '.join(sorted(valid_ids))}) or 'decline': "
         ).strip()
-        if answer == "decline" or answer in valid_ids:
-            return answer
+        normalized = answer.lower()
+        if normalized == "decline":
+            return "decline"
+        if normalized in by_lower:
+            return by_lower[normalized]
         print(f"Please type one of {sorted(valid_ids)} or 'decline'.")
 
 
