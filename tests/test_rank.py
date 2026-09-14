@@ -3,7 +3,13 @@ from decimal import Decimal
 
 import pytest
 
-from ins_agent.matching.rank import canonicalize_phone, rank_score
+from ins_agent.matching.rank import (
+    DOB_WEIGHT,
+    NAME_WEIGHT,
+    PHONE_WEIGHT,
+    canonicalize_phone,
+    rank_score,
+)
 from ins_agent.models.claim import PolicySearchQuery
 from ins_agent.models.policy import Policy
 
@@ -79,6 +85,45 @@ def test_no_query_fields_scores_zero():
     result = rank_score(POLICY, PolicySearchQuery())
     assert result.score == 0.0
     assert not result.is_perfect
+
+
+def test_exact_phone_with_mismatched_name_does_not_inflate_score():
+    query = PolicySearchQuery(holder_name="Jordan Fischer", phone="940-781-6184")
+    result = rank_score(POLICY, query)
+    assert result.phone_exact
+    assert not result.name_exact
+    assert not result.is_perfect
+    # Phone contributes its full weight; the dissimilar name contributes only
+    # partial Jaro-Winkler credit (no Metaphone bonus), so the total stays
+    # bounded well below a Perfect Score without pinning the exact float.
+    assert PHONE_WEIGHT < result.score < PHONE_WEIGHT + NAME_WEIGHT * 0.6
+
+
+def test_exact_dob_alone_scores_only_the_dob_weight():
+    query = PolicySearchQuery(dob=date(1964, 11, 2))
+    result = rank_score(POLICY, query)
+    assert result.dob_exact
+    assert not result.policy_id_exact
+    assert not result.name_exact
+    assert not result.phone_exact
+    assert not result.is_perfect
+    assert result.score == pytest.approx(DOB_WEIGHT)
+
+
+def test_no_fields_matching_scores_near_zero():
+    query = PolicySearchQuery(
+        policy_id="POL-99999",
+        holder_name="Jordan Fischer",
+        phone="212-555-0100",
+        dob=date(1990, 1, 1),
+    )
+    result = rank_score(POLICY, query)
+    assert not result.policy_id_exact
+    assert not result.name_exact
+    assert not result.phone_exact
+    assert not result.dob_exact
+    assert not result.is_perfect
+    assert result.score < 0.15
 
 
 def test_typo_name_with_matching_policy_id_phone_and_dob_still_clears_threshold():
