@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claim Triage Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #2d3142;
+      --color-ink:     #f5f5f5;
+      --color-muted:   #bfc0c0;
+      --color-soft:    #8e98ac;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1080px; width: 100%; margin: 0 auto; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 680px;
+    }
+    svg { width: 100%; min-width: 760px; display: block; }
+    .colophon {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(245,245,245,0.12);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--color-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart &middot; Diagram Design</p>
+    <h1>Claim Triage Agent — End-to-End Pipeline</h1>
+    <p class="subtitle">The full LangGraph pipeline as built through ticket 11: Recall/Rank with the deterministic Broadening retry loop, the Policy Selection Gate, and the Final Review Gate all wired end to end.</p>
+
+    <svg viewBox="0 0 840 860" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="triage-pipeline-title triage-pipeline-desc">
+      <title id="triage-pipeline-title">Claim Triage Agent — End-to-End Pipeline</title>
+      <desc id="triage-pipeline-desc">Flowchart of the insurance claim triage pipeline: LLM-driven Recall retries via a deterministic Broadening loop into Rank, which resolves a policy outright, routes ambiguous candidates to a human Policy Selection Gate, or falls through to Notification; a resolved policy proceeds through deterministic Coverage Check and LLM Eligibility Judgment and Sufficiency Assessment, each able to short-circuit to Notification, which converges into a terminal human Final Review Gate.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6a95d8"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#2d3142"/>
+
+      <!-- ================= ARROWS (drawn before nodes) ================= -->
+
+      <!-- A1 Recall -> Rank -->
+      <path d="M320,104 L320,144" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- A2 Rank -> Coverage Check (RESOLVED) -->
+      <path d="M320,208 L320,248" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="328" y="222" width="64" height="12" rx="2" fill="#2d3142"/>
+      <text x="360" y="231" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">RESOLVED</text>
+
+      <!-- A3 Rank -> Recall (BROADEN, retry loop) -->
+      <path d="M240,176 L216,176 Q208,176 208,168 L208,80 Q208,72 216,72 L240,72" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="152" y="118" width="64" height="12" rx="2" fill="#2d3142"/>
+      <text x="184" y="127" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">BROADEN</text>
+
+      <!-- A4 Rank -> Policy Selection Gate (AMBIGUOUS) -->
+      <path d="M400,168 L432,168 Q440,168 440,176 L440,256 Q440,264 448,264 L480,264" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="408" y="148" width="56" height="12" rx="2" fill="#2d3142"/>
+      <text x="436" y="157" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">AMBIGUOUS</text>
+
+      <!-- A5 Policy Selection Gate -> Coverage Check (SELECTED) -->
+      <path d="M480,296 L400,296" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="408" y="276" width="60" height="12" rx="2" fill="#2d3142"/>
+      <text x="438" y="285" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">SELECTED</text>
+
+      <!-- A6 Rank -> Notification (exhausted / single-or-no candidate) -->
+      <path d="M400,152 L744,152 Q752,152 752,160 L752,600 Q752,608 744,608 L400,608" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="716" y="132" width="56" height="12" rx="2" fill="#2d3142"/>
+      <text x="744" y="141" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">EXHAUSTED</text>
+
+      <!-- A7 Coverage Check -> Eligibility Judgment (PASS) -->
+      <path d="M320,312 L320,352" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="328" y="326" width="40" height="12" rx="2" fill="#2d3142"/>
+      <text x="348" y="335" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">PASS</text>
+
+      <!-- A8 Coverage Check -> Notification (FAIL) — left bypass -->
+      <path d="M240,280 L216,280 Q208,280 208,288 L208,584 Q208,592 216,592 L240,592" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="176" y="260" width="40" height="12" rx="2" fill="#2d3142"/>
+      <text x="196" y="269" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">FAIL</text>
+
+      <!-- A9 Eligibility Judgment -> Sufficiency Assessment (ELIGIBLE) -->
+      <path d="M320,416 L320,456" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="328" y="430" width="56" height="12" rx="2" fill="#2d3142"/>
+      <text x="356" y="439" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">ELIGIBLE</text>
+
+      <!-- A10 Eligibility Judgment -> Notification (INELIGIBLE) — right bypass -->
+      <path d="M400,392 L664,392 Q672,392 672,400 L672,568 Q672,576 664,576 L400,576" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="636" y="372" width="56" height="12" rx="2" fill="#2d3142"/>
+      <text x="664" y="381" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">INELIGIBLE</text>
+
+      <!-- A11 Policy Selection Gate -> Notification (DECLINED) — right bypass -->
+      <path d="M640,280 L704,280 Q712,280 712,288 L712,584 Q712,592 704,592 L400,592" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <rect x="676" y="260" width="56" height="12" rx="2" fill="#2d3142"/>
+      <text x="704" y="269" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.06em" fill="#8e98ac">DECLINED</text>
+
+      <!-- A12 Sufficiency Assessment -> Notification -->
+      <path d="M320,520 L320,560" fill="none" stroke="#bfc0c0" stroke-width="1" marker-end="url(#arrow)"/>
+      <!-- A13 Notification -> Final Review Gate -->
+      <path d="M320,624 L320,664" fill="none" stroke="#f08a59" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+
+      <!-- ================= NODES ================= -->
+
+      <!-- Recall (LLM, start) -->
+      <rect x="240" y="40" width="160" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="248" y="46" width="24" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.4)" stroke-width="0.8"/>
+      <text x="260" y="55" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="rgba(245,245,245,0.85)">LLM</text>
+      <text x="320" y="76" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Recall</text>
+      <text x="320" y="88" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">structured search</text>
+      <text x="320" y="98" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">fixture · TUI intake</text>
+
+      <!-- Rank (deterministic) -->
+      <rect x="240" y="144" width="160" height="64" rx="6" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
+      <rect x="248" y="150" width="76" height="12" rx="2" fill="transparent" stroke="rgba(191,192,192,0.4)" stroke-width="0.8"/>
+      <text x="286" y="159" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.06em" fill="rgba(191,192,192,0.9)">DETERMINISTIC</text>
+      <text x="320" y="180" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Rank</text>
+      <text x="320" y="192" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">Jaro-Winkler · Metaphone</text>
+
+      <!-- Coverage Check (deterministic) -->
+      <rect x="240" y="248" width="160" height="64" rx="6" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
+      <rect x="248" y="254" width="76" height="12" rx="2" fill="transparent" stroke="rgba(191,192,192,0.4)" stroke-width="0.8"/>
+      <text x="286" y="263" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.06em" fill="rgba(191,192,192,0.9)">DETERMINISTIC</text>
+      <text x="320" y="284" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Coverage Check</text>
+      <text x="320" y="296" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">amount &amp; date in window</text>
+
+      <!-- Policy Selection Gate (human) -->
+      <rect x="480" y="248" width="160" height="64" rx="6" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
+      <rect x="488" y="254" width="40" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.5)" stroke-width="0.8"/>
+      <text x="508" y="263" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="#f08a59">HUMAN</text>
+      <text x="560" y="284" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Policy Selection Gate</text>
+      <text x="560" y="296" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">pick among candidates</text>
+
+      <!-- Eligibility Judgment (LLM) -->
+      <rect x="240" y="352" width="160" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="248" y="358" width="24" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.4)" stroke-width="0.8"/>
+      <text x="260" y="367" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="rgba(245,245,245,0.85)">LLM</text>
+      <text x="320" y="388" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Eligibility Judgment</text>
+      <text x="320" y="400" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">vs. guideline doc</text>
+
+      <!-- Sufficiency Assessment (LLM) -->
+      <rect x="240" y="456" width="160" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="248" y="462" width="24" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.4)" stroke-width="0.8"/>
+      <text x="260" y="471" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="rgba(245,245,245,0.85)">LLM</text>
+      <text x="320" y="492" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Sufficiency Assessment</text>
+      <text x="320" y="504" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">documents complete?</text>
+
+      <!-- Notification Drafting (LLM, fan-in hub) -->
+      <rect x="240" y="560" width="160" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="248" y="566" width="24" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.4)" stroke-width="0.8"/>
+      <text x="260" y="575" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="rgba(245,245,245,0.85)">LLM</text>
+      <text x="320" y="596" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Notification Drafting</text>
+      <text x="320" y="608" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">claimant email text</text>
+
+      <!-- Final Review Gate (human, focal, terminal) -->
+      <rect x="240" y="664" width="160" height="64" rx="20" fill="rgba(240,138,89,0.10)" stroke="#f08a59" stroke-width="1.2"/>
+      <rect x="248" y="670" width="40" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.5)" stroke-width="0.8"/>
+      <text x="268" y="679" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="7" letter-spacing="0.08em" fill="#f08a59">HUMAN</text>
+      <text x="320" y="700" text-anchor="middle" font-family="'Geist', sans-serif" font-size="12" font-weight="600" fill="#f5f5f5">Final Review Gate</text>
+      <text x="320" y="712" text-anchor="middle" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">approve -&gt; data/output</text>
+
+      <!-- ================= LEGEND ================= -->
+      <line x1="30" y1="762" x2="810" y2="762" stroke="rgba(245,245,245,0.12)" stroke-width="0.8"/>
+      <text x="30" y="780" font-family="'Geist Mono', monospace" font-size="8" letter-spacing="0.14em" fill="#bfc0c0">LEGEND</text>
+
+      <rect x="120" y="772" width="16" height="12" rx="3" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <text x="144" y="781" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">LLM STEP</text>
+
+      <rect x="256" y="772" width="16" height="12" rx="3" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="280" y="781" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">DETERMINISTIC STEP</text>
+
+      <rect x="460" y="772" width="16" height="12" rx="3" fill="rgba(240,138,89,0.10)" stroke="#f08a59" stroke-width="1.2"/>
+      <text x="484" y="781" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">HUMAN GATE</text>
+
+      <rect x="640" y="772" width="16" height="12" rx="3" fill="none" stroke="#f08a59" stroke-width="1.2"/>
+      <text x="664" y="781" font-family="'Geist Mono', monospace" font-size="8" fill="#bfc0c0">FOCAL / TERMINAL</text>
+
+    </svg>
+
+    <div class="colophon">ins-agent · docs/architecture-diagram.html · generated with Diagram Design</div>
+  </div>
+</body>
+</html>
