@@ -19,3 +19,6 @@ wheels/
 # Generated data
 data/seed/*.csv
 data/output/*.txt
+
+# Downloaded font cache (helpers/convert.py)
+helpers/.fonts/
