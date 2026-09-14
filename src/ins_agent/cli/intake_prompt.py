@@ -7,7 +7,7 @@ fields can be skipped by pressing enter.
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from ins_agent.models.claim import IntakeInput
+from ins_agent.models.claim import DocType, Document, IntakeInput
 
 
 def _prompt_optional(label: str) -> str | None:
@@ -52,6 +52,44 @@ def _prompt_amount(label: str) -> Decimal:
             print("Please enter a plain number, e.g. 3200.00.")
 
 
+def _prompt_yes_no(label: str, *, default: bool) -> bool:
+    suffix = "Y/n" if default else "y/N"
+    while True:
+        raw = input(f"{label} [{suffix}]: ").strip().lower()
+        if not raw:
+            return default
+        if raw in ("y", "yes"):
+            return True
+        if raw in ("n", "no"):
+            return False
+        print("Please answer 'y' or 'n'.")
+
+
+def _prompt_doc_type() -> DocType | None:
+    doc_types = list(DocType)
+    options = ", ".join(doc_type.value for doc_type in doc_types)
+    while True:
+        raw = input(f"  Document type ({options}, or enter to finish): ").strip().lower()
+        if not raw:
+            return None
+        for doc_type in doc_types:
+            if doc_type.value == raw:
+                return doc_type
+        print(f"Please enter one of: {options}")
+
+
+def prompt_documents() -> list[Document]:
+    print("Attach documents (enter a document type to add one, blank to finish):")
+    documents: list[Document] = []
+    while True:
+        doc_type = _prompt_doc_type()
+        if doc_type is None:
+            return documents
+        filename = _prompt_required("  Filename")
+        is_present = _prompt_yes_no("  Is the document actually attached", default=True)
+        documents.append(Document(doc_type=doc_type, filename=filename, present=is_present))
+
+
 def prompt_intake_input() -> IntakeInput:
     print("--- Claim intake ---")
     print("Policy Holder identifying details (used to look up the Policy):")
@@ -68,6 +106,7 @@ def prompt_intake_input() -> IntakeInput:
     incident_date = _prompt_required_date("  Incident date")
     description = _prompt_required("  Description")
     requested_amount = _prompt_amount("  Requested amount")
+    documents = prompt_documents()
 
     return IntakeInput(
         policy_id=policy_id,
@@ -79,5 +118,5 @@ def prompt_intake_input() -> IntakeInput:
         incident_date=incident_date,
         description=description,
         requested_amount=requested_amount,
-        documents=[],
+        documents=documents,
     )
