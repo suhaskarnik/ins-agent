@@ -39,3 +39,6 @@ test:
 # Regenerate docs/graph.mmd from the compiled LangGraph.
 diagram:
     uv run python -m ins_agent.cli.diagram
+
+push:
+		git push origin main
