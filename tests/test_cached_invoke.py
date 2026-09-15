@@ -103,6 +103,28 @@ def test_cache_hit_reports_zero_usage(monkeypatch, fake_langfuse):
     assert generation.updates[-1]["usage_details"] == {"input": 0, "output": 0}
 
 
+def test_cache_hit_with_stale_schema_shape_falls_back_to_a_fresh_call(monkeypatch, fake_langfuse):
+    class SchemaWithNewRequiredField(BaseModel):
+        value: str
+        confidence: float
+
+    monkeypatch.setattr(
+        cached_invoke_module, "get_cached_response", lambda key: {"value": "cached"}
+    )
+    store_mock = MagicMock()
+    monkeypatch.setattr(cached_invoke_module, "store_response", store_mock)
+
+    fresh = SchemaWithNewRequiredField(value="fresh", confidence=0.9)
+    model = FakeChatModel(invoke_fn=lambda prompt: fresh)
+
+    result = cached_invoke(model, "find the policy", SchemaWithNewRequiredField)
+
+    assert result == fresh
+    assert model.with_structured_output_calls == [SchemaWithNewRequiredField]
+    store_mock.assert_called_once()
+    assert fake_langfuse.observations[0]["metadata"] == {"cache_hit": False}
+
+
 def test_cache_miss_calls_the_model_and_stores_the_response(monkeypatch, fake_langfuse):
     monkeypatch.setattr(cached_invoke_module, "get_cached_response", lambda key: None)
     store_mock = MagicMock()

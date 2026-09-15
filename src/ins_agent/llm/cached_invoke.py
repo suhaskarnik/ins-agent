@@ -17,7 +17,7 @@ from typing import Any, TypeVar, cast
 import groq
 import openai
 from langchain_core.language_models import BaseChatModel
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ins_agent.config import get_settings
@@ -102,18 +102,27 @@ def cached_invoke(model: BaseChatModel, prompt: str, schema: type[SchemaT]) -> S
     langfuse = get_langfuse_client()
 
     if cached is not None:
-        with langfuse.start_as_current_observation(
-            name="cached_invoke",
-            as_type="generation",
-            model=model_id,
-            input=prompt,
-            metadata={"cache_hit": True},
-        ) as generation:
+        try:
             result = schema.model_validate(cached)
-            generation.update(
-                output=result.model_dump(mode="json"), usage_details=ZERO_USAGE_DETAILS
-            )
-        return result
+        except ValidationError:
+            # The cached row was written against an older shape of `schema`
+            # (e.g. a newly added required field) but `cache_key` doesn't
+            # encode the schema's field shape, so the stale row still hits.
+            # Treat it as a miss rather than surfacing a validation error to
+            # the caller; the fresh response below overwrites this key.
+            pass
+        else:
+            with langfuse.start_as_current_observation(
+                name="cached_invoke",
+                as_type="generation",
+                model=model_id,
+                input=prompt,
+                metadata={"cache_hit": True},
+            ) as generation:
+                generation.update(
+                    output=result.model_dump(mode="json"), usage_details=ZERO_USAGE_DETAILS
+                )
+            return result
 
     with langfuse.start_as_current_observation(
         name="cached_invoke",

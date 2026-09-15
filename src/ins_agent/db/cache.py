@@ -28,7 +28,10 @@ def store_response(
             """
             INSERT INTO llm_cache (cache_key, model, prompt_hash, response_json)
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (cache_key) DO NOTHING
+            ON CONFLICT (cache_key) DO UPDATE SET
+                model = excluded.model,
+                prompt_hash = excluded.prompt_hash,
+                response_json = excluded.response_json
             """,
             (cache_key, model, prompt_hash, json.dumps(response_json)),
         )
