@@ -8,5 +8,6 @@ def prompt_hash(rendered_prompt: str) -> str:
 
 
 def cache_key(model_id: str, rendered_prompt: str, output_schema_name: str) -> str:
-    payload = f"{model_id}{rendered_prompt}{output_schema_name}"
+    fields = (model_id, rendered_prompt, output_schema_name)
+    payload = "".join(f"{len(field)}:{field}" for field in fields)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

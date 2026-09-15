@@ -25,6 +25,12 @@ def test_cache_key_changes_with_schema_name():
     assert a != b
 
 
+def test_cache_key_does_not_collide_across_field_boundary():
+    a = cache_key("ChatGroq:m1", "2 is the answer", "Foo")
+    b = cache_key("ChatGroq:m", "12 is the answer", "Foo")
+    assert a != b
+
+
 def test_prompt_hash_is_deterministic():
     assert prompt_hash("hello") == prompt_hash("hello")
     assert prompt_hash("hello") != prompt_hash("world")
