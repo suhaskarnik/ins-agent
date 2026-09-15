@@ -2,15 +2,21 @@
 
 This document describes the triage pipeline. The diagram below is regenerated directly from the compiled LangGraph via `just diagram` (`graph.get_graph().draw_mermaid()`, written to `docs/graph.mmd`), so it can never silently drift from the code.
 
-As of ticket 05, the graph implements Recall, Rank, Coverage Check, Eligibility Judgment, Sufficiency Assessment, Notification, and the Final Review Gate, plus the Broadening loop between Recall and Rank (tc001's clean match, tc002's fuzzy match). The Policy Selection Gate (ticket 06) still routes through the same shape: today, multiple ambiguous candidates or an exhausted Broadening budget route straight to Notification → Final Review Gate.
+The graph implements Recall, Rank, the Policy Selection Gate, Coverage Check, Eligibility Judgment, Sufficiency Assessment, Notification, and the Final Review Gate, plus the Broadening loop between Recall and Rank (ADR-0001). Ambiguous candidates left after Broadening route to the Policy Selection Gate; an exhausted Broadening budget, a failed Coverage Check, or an ineligible Eligibility Judgment all route straight to Notification → Final Review Gate.
 
 ## Pipeline
 
 ```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
 graph TD;
 	__start__([<p>__start__</p>]):::first
 	recall(recall)
 	rank(rank)
+	policy_selection_gate(policy_selection_gate)
 	coverage_check(coverage_check)
 	eligibility_judgment(eligibility_judgment)
 	sufficiency_assessment(sufficiency_assessment)
@@ -23,8 +29,11 @@ graph TD;
 	eligibility_judgment -.-> notification;
 	eligibility_judgment -.-> sufficiency_assessment;
 	notification --> final_review_gate;
+	policy_selection_gate -.-> coverage_check;
+	policy_selection_gate -.-> notification;
 	rank -.-> coverage_check;
 	rank -.-> notification;
+	rank -.-> policy_selection_gate;
 	rank -.-> recall;
 	recall --> rank;
 	sufficiency_assessment --> notification;
