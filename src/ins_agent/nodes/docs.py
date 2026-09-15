@@ -18,7 +18,13 @@ def _format_documents(intake_documents: list) -> str:
     )
 
 
-def sufficiency_assessment(state: TriageState) -> dict[str, SufficiencyAssessment]:
+def run_sufficiency_assessment(
+    state: TriageState, *, bypass_cache: bool = False
+) -> SufficiencyAssessment:
+    """The Sufficiency Assessment call itself, factored out of the node so
+    `just eval` (ticket 18) can re-invoke it directly against a Scenario's
+    already-resolved state, bypassing `cached_invoke`'s cache to check
+    against the *current* prompt/model."""
     policy = state["resolved_policy"]
     assert policy is not None
     intake = state["intake"]
@@ -31,5 +37,10 @@ def sufficiency_assessment(state: TriageState) -> dict[str, SufficiencyAssessmen
         documents=_format_documents(intake.documents),
     )
 
-    assessment = cached_invoke(get_model("model_fast"), prompt, SufficiencyAssessment)
-    return {"sufficiency_assessment": assessment}
+    return cached_invoke(
+        get_model("model_fast"), prompt, SufficiencyAssessment, bypass_cache=bypass_cache
+    )
+
+
+def sufficiency_assessment(state: TriageState) -> dict[str, SufficiencyAssessment]:
+    return {"sufficiency_assessment": run_sufficiency_assessment(state)}

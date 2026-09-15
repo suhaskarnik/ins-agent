@@ -11,7 +11,13 @@ from ins_agent.prompts.loader import load_guideline, load_system_prompt
 from ins_agent.state import TriageState
 
 
-def eligibility_judgment(state: TriageState) -> dict[str, EligibilityJudgment]:
+def run_eligibility_judgment(
+    state: TriageState, *, bypass_cache: bool = False
+) -> EligibilityJudgment:
+    """The Eligibility Judgment call itself, factored out of the node so
+    `just eval` (ticket 18) can re-invoke it directly against a Scenario's
+    already-resolved state, bypassing `cached_invoke`'s cache to check
+    against the *current* prompt/model."""
     policy = state["resolved_policy"]
     coverage = state["coverage_check"]
     assert policy is not None
@@ -33,8 +39,13 @@ def eligibility_judgment(state: TriageState) -> dict[str, EligibilityJudgment]:
         within_coverage_window=str(coverage.within_coverage_window),
     )
 
-    judgment = cached_invoke(get_model("model_reasoning"), prompt, EligibilityJudgment)
-    return {"eligibility_judgment": judgment}
+    return cached_invoke(
+        get_model("model_reasoning"), prompt, EligibilityJudgment, bypass_cache=bypass_cache
+    )
+
+
+def eligibility_judgment(state: TriageState) -> dict[str, EligibilityJudgment]:
+    return {"eligibility_judgment": run_eligibility_judgment(state)}
 
 
 def route_after_eligibility(state: TriageState) -> str:

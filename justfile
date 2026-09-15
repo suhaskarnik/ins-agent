@@ -36,6 +36,12 @@ run-scenario SCENARIO:
 test:
     uv run pytest
 
+# Drift check: re-run the Eligibility Judgment / Sufficiency Assessment
+# steps for each Scenario against their recorded golden outputs. Separate
+# from `just test` — a mismatch is a signal, not a hard regression gate.
+eval:
+    uv run python -m ins_agent.cli.eval
+
 # Regenerate docs/graph.mmd from the compiled LangGraph.
 diagram:
     uv run python -m ins_agent.cli.diagram

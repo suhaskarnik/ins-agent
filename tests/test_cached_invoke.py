@@ -148,6 +148,23 @@ def test_cache_miss_calls_the_model_and_stores_the_response(monkeypatch, fake_la
     }
 
 
+def test_bypass_cache_ignores_a_cached_response_but_still_refreshes_it(monkeypatch, fake_langfuse):
+    get_cached_mock = MagicMock(return_value={"value": "stale-cached"})
+    monkeypatch.setattr(cached_invoke_module, "get_cached_response", get_cached_mock)
+    store_mock = MagicMock()
+    monkeypatch.setattr(cached_invoke_module, "store_response", store_mock)
+
+    model = FakeChatModel(invoke_fn=lambda prompt: DummySchema(value="fresh"))
+
+    result = cached_invoke(model, "find the policy", DummySchema, bypass_cache=True)
+
+    assert result == DummySchema(value="fresh")
+    assert model.with_structured_output_calls == [DummySchema]
+    get_cached_mock.assert_not_called()
+    store_mock.assert_called_once()
+    assert fake_langfuse.observations[0]["metadata"] == {"cache_hit": False}
+
+
 def test_transient_provider_errors_retry_then_succeed(monkeypatch, fake_langfuse):
     monkeypatch.setattr(cached_invoke_module, "get_cached_response", lambda key: None)
     monkeypatch.setattr(cached_invoke_module, "store_response", MagicMock())

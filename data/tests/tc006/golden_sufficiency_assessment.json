@@ -1,0 +1,5 @@
+{
+  "sufficient": false,
+  "missing_documents": ["repair_estimate"],
+  "rationale": "Recorded at authoring time: Auto - Collision requires police_report, photos, and repair_estimate; repair_estimate was not submitted."
+}

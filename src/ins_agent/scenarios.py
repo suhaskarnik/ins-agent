@@ -7,6 +7,7 @@ import json
 from typing import Any
 
 from ins_agent.models.claim import IntakeInput
+from ins_agent.models.triage import EligibilityJudgment, SufficiencyAssessment
 from ins_agent.paths import REPO_ROOT
 
 SCENARIOS_DIR = REPO_ROOT / "data" / "tests"
@@ -46,3 +47,24 @@ def load_expected(scenario_id: str) -> dict[str, Any]:
 
 def list_scenario_ids() -> list[str]:
     return sorted(p.name for p in SCENARIOS_DIR.iterdir() if p.is_dir())
+
+
+def load_golden_eligibility_judgment(scenario_id: str) -> EligibilityJudgment | None:
+    """The recorded golden Eligibility Judgment for a Scenario, used by
+    `just eval` (ticket 18) as a drift check. `None` when the Scenario
+    never reaches this step (its graph run skips straight to `notification`
+    from the Coverage Check)."""
+    path = SCENARIOS_DIR / scenario_id / "golden_eligibility_judgment.json"
+    if not path.is_file():
+        return None
+    return EligibilityJudgment.model_validate_json(path.read_text())
+
+
+def load_golden_sufficiency_assessment(scenario_id: str) -> SufficiencyAssessment | None:
+    """The recorded golden Sufficiency Assessment for a Scenario, used by
+    `just eval` (ticket 18) as a drift check. `None` when the Scenario
+    never reaches this step."""
+    path = SCENARIOS_DIR / scenario_id / "golden_sufficiency_assessment.json"
+    if not path.is_file():
+        return None
+    return SufficiencyAssessment.model_validate_json(path.read_text())

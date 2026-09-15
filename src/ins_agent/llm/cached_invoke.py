@@ -93,12 +93,20 @@ def _invoke_structured(
     return StructuredResult(parsed=parsed, usage_details=_usage_details(response["raw"]))
 
 
-def cached_invoke(model: BaseChatModel, prompt: str, schema: type[SchemaT]) -> SchemaT:
+def cached_invoke(
+    model: BaseChatModel, prompt: str, schema: type[SchemaT], *, bypass_cache: bool = False
+) -> SchemaT:
+    """`bypass_cache=True` skips the cache lookup (forcing a fresh provider
+    call) but still writes the fresh response back to the cache — used by
+    `just eval` to check a judgment step against the *current* prompt/model
+    rather than a historical cached response, without leaving the cache
+    stale for the next normal call.
+    """
     model_id = _model_id(model)
     schema_name = schema.__name__
     key = cache_key(model_id, prompt, schema_name)
 
-    cached = get_cached_response(key)
+    cached = None if bypass_cache else get_cached_response(key)
     langfuse = get_langfuse_client()
 
     if cached is not None:
