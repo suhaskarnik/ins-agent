@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Components</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #2d3142;
+      --color-ink:     #f5f5f5;
+      --color-muted:   #bfc0c0;
+      --color-soft:    #8e98ac;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1240px; width: 100%; margin: 0 auto; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 760px;
+    }
+    svg { width: 100%; min-width: 960px; display: block; }
+    .colophon {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(245,245,245,0.12);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--color-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture &middot; Diagram Design</p>
+    <h1>System Components</h1>
+    <p class="subtitle">How the pieces fit together end to end: one local process driving the LangGraph pipeline, a single Postgres instance serving three distinct roles, and the swappable LLM provider and Langfuse trace store sitting outside the process boundary. For pipeline-node detail see the flowchart; for one HITL round-trip see the interrupt/resume sequence.</p>
+
+    <svg viewBox="0 0 1240 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="system-components-title system-components-desc">
+      <title id="system-components-title">System Components</title>
+      <desc id="system-components-desc">Architecture diagram showing the CLI/TUI calling a Runner that drives the LangGraph Agent Graph, which reaches a shared Postgres instance through an LLM Client and a Checkpointer, plus a direct data-access path; Postgres holds Policy/Claim data, the LLM cache, and checkpointer state in three compartments; the Agent Graph writes an approved Notification to a local Output file; the LLM Client calls an external LLM Provider; the Runner and LLM Client both send traces to external Langfuse; and an offline Eval Suite replays scenarios through the same Agent Graph with the cache bypassed.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(245,245,245,0.10)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6a95d8"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#2d3142"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.5"/>
+
+      <!-- ============ ZONES (bg -> zones -> arrows -> nodes) ============ -->
+
+      <!-- Zone: process boundary -->
+      <rect x="32" y="136" width="600" height="252" rx="8"
+            fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8" stroke-dasharray="4,4"/>
+      <rect x="292" y="140" width="184" height="12" rx="2" fill="#2d3142"/>
+      <text x="384" y="149" fill="rgba(245,245,245,0.38)" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.12em">ONE LOCAL PROCESS</text>
+
+      <!-- Zone: offline / dev-time -->
+      <rect x="224" y="556" width="248" height="112" rx="8"
+            fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8" stroke-dasharray="4,4"/>
+      <rect x="284" y="560" width="128" height="12" rx="2" fill="#2d3142"/>
+      <text x="348" y="569" fill="rgba(245,245,245,0.38)" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.12em">OFFLINE / DEV-TIME</text>
+
+      <!-- ============ ARROWS (drawn before nodes) ============ -->
+
+      <!-- Primary flow: CLI/TUI -> Runner -> Agent Graph -> Output -->
+      <line x1="184" y1="192" x2="248" y2="192" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="376" y1="192" x2="440" y2="192" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="600" y1="184" x2="1000" y2="184" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Agent Graph -> LLM Client (straight vertical, x=507) -->
+      <path d="M 507,224 V 288" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Runner -> Checkpointer (straight vertical, x=312) -->
+      <path d="M 312,224 V 288" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Agent Graph -> Postgres (Policy/Claim), exits lower attach point -->
+      <path d="M 600,204 H 852 Q 860,204 860,212 V 368 Q 860,376 868,376 H 880"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- LLM Client -> Postgres (LLM cache), routes below LLM Provider -->
+      <path d="M 560,360 V 416 Q 560,424 568,424 H 880"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Checkpointer -> Postgres (checkpointer state), routes below LLM Provider -->
+      <path d="M 300,360 V 464 Q 300,472 308,472 H 880"
+            fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- LLM Client -> LLM Provider (external call, link-blue) -->
+      <line x1="600" y1="328" x2="680" y2="328" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+      <!-- Runner -> Langfuse (dashed observability) -->
+      <path d="M 312,160 V 128 Q 312,120 320,120 H 908 Q 916,120 916,112 V 96"
+            fill="none" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- LLM Client -> Langfuse (dashed observability, routed right of Agent Graph) -->
+      <path d="M 533,296 V 270 Q 533,262 541,262 H 612 Q 620,262 620,254 V 148 Q 620,140 628,140 H 992 Q 1000,140 1000,132 V 96"
+            fill="none" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- Eval Suite -> Agent Graph (dashed, offline); hop bridges the Checkpointer->Postgres crossing at y=472 -->
+      <path d="M 408,580 V 480 A 8,8 0 0 1 408,464 V 258 Q 408,250 416,250 H 472 Q 480,250 480,242 V 224"
+            fill="none" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <!-- ============ ARROW LABELS ============ -->
+
+      <rect x="192" y="164" width="60" height="12" rx="2" fill="#2d3142"/>
+      <text x="222" y="173" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">INVOKE</text>
+
+      <rect x="386" y="164" width="44" height="12" rx="2" fill="#2d3142"/>
+      <text x="408" y="173" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">RUN</text>
+
+      <rect x="770" y="156" width="60" height="12" rx="2" fill="#2d3142"/>
+      <text x="800" y="165" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">APPROVED</text>
+
+      <rect x="642" y="332" width="52" height="12" rx="2" fill="#2d3142"/>
+      <text x="668" y="341" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">MODEL</text>
+
+      <!-- ============ NODES ============ -->
+
+      <!-- CLI/TUI (input/user) -->
+      <rect x="56" y="160" width="128" height="64" rx="6" fill="#2d3142"/>
+      <rect x="56" y="160" width="128" height="64" rx="6" fill="rgba(191,192,192,0.10)" stroke="#8e98ac" stroke-width="1"/>
+      <rect x="64" y="168" width="32" height="12" rx="2" fill="transparent" stroke="rgba(142,152,172,0.45)" stroke-width="0.8"/>
+      <text x="80" y="177" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CLI</text>
+      <text x="120" y="200" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CLI / TUI</text>
+      <text x="120" y="216" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">run · run_scenario</text>
+
+      <!-- Runner -->
+      <rect x="248" y="160" width="128" height="64" rx="6" fill="#2d3142"/>
+      <rect x="248" y="160" width="128" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="256" y="168" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.40)" stroke-width="0.8"/>
+      <text x="272" y="177" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">RUN</text>
+      <text x="312" y="200" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Runner</text>
+      <text x="312" y="216" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">interrupt · resume</text>
+
+      <!-- Agent Graph (focal) -->
+      <rect x="440" y="160" width="160" height="64" rx="6" fill="#2d3142"/>
+      <rect x="440" y="160" width="160" height="64" rx="6" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
+      <rect x="448" y="168" width="36" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
+      <text x="466" y="177" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GRAPH</text>
+      <text x="520" y="196" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Agent Graph</text>
+      <text x="520" y="212" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">LangGraph pipeline</text>
+
+      <!-- Checkpointer -->
+      <rect x="248" y="296" width="128" height="64" rx="6" fill="#2d3142"/>
+      <rect x="248" y="296" width="128" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="256" y="304" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.40)" stroke-width="0.8"/>
+      <text x="272" y="313" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">HITL</text>
+      <text x="312" y="336" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Checkpointer</text>
+      <text x="312" y="352" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">PostgresSaver</text>
+
+      <!-- LLM Client -->
+      <rect x="440" y="296" width="160" height="64" rx="6" fill="#2d3142"/>
+      <rect x="440" y="296" width="160" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <rect x="448" y="304" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.40)" stroke-width="0.8"/>
+      <text x="464" y="313" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">LLM</text>
+      <text x="520" y="332" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LLM Client</text>
+      <text x="520" y="348" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">tiers · retries · cache key</text>
+
+      <!-- LLM Provider (external) -->
+      <rect x="680" y="296" width="140" height="64" rx="6" fill="#2d3142"/>
+      <rect x="680" y="296" width="140" height="64" rx="6" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
+      <rect x="688" y="304" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.22)" stroke-width="0.8"/>
+      <text x="704" y="313" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <text x="750" y="332" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LLM Provider</text>
+      <text x="750" y="348" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Groq / OpenRouter</text>
+
+      <!-- Postgres (store, focal, 3 compartments) -->
+      <rect x="880" y="296" width="200" height="220" rx="8" fill="#2d3142"/>
+      <rect x="880" y="296" width="200" height="220" rx="8" fill="rgba(240,138,89,0.06)" stroke="#f08a59" stroke-width="1"/>
+      <rect x="888" y="304" width="40" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
+      <text x="908" y="313" fill="#f08a59" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">STORE</text>
+      <text x="980" y="332" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Postgres</text>
+      <text x="980" y="346" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">one instance</text>
+
+      <!-- compartment: Policy/Claim -->
+      <rect x="896" y="356" width="168" height="40" rx="4" fill="rgba(245,245,245,0.04)" stroke="#bfc0c0" stroke-width="0.8"/>
+      <text x="980" y="372" fill="#f5f5f5" font-size="9.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Policy / Claim data</text>
+      <text x="980" y="386" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">db/queries.py</text>
+
+      <!-- compartment: LLM cache -->
+      <rect x="896" y="404" width="168" height="40" rx="4" fill="rgba(245,245,245,0.04)" stroke="#bfc0c0" stroke-width="0.8"/>
+      <text x="980" y="420" fill="#f5f5f5" font-size="9.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LLM cache</text>
+      <text x="980" y="434" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">llm_cache table</text>
+
+      <!-- compartment: Checkpointer state -->
+      <rect x="896" y="452" width="168" height="40" rx="4" fill="rgba(245,245,245,0.04)" stroke="#bfc0c0" stroke-width="0.8"/>
+      <text x="980" y="468" fill="#f5f5f5" font-size="9.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Checkpointer state</text>
+      <text x="980" y="482" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">durable HITL</text>
+
+      <!-- Output (terminal) -->
+      <rect x="1000" y="160" width="140" height="64" rx="6" fill="#2d3142"/>
+      <rect x="1000" y="160" width="140" height="64" rx="6" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
+      <rect x="1008" y="168" width="32" height="12" rx="2" fill="transparent" stroke="rgba(191,192,192,0.50)" stroke-width="0.8"/>
+      <text x="1024" y="177" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">OUT</text>
+      <text x="1070" y="200" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Output</text>
+      <text x="1070" y="216" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">data/output/*.txt</text>
+
+      <!-- Langfuse (external) -->
+      <rect x="880" y="40" width="140" height="56" rx="6" fill="#2d3142"/>
+      <rect x="880" y="40" width="140" height="56" rx="6" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
+      <rect x="888" y="48" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.22)" stroke-width="0.8"/>
+      <text x="904" y="57" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+      <text x="950" y="72" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Langfuse</text>
+      <text x="950" y="86" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">traces · spans</text>
+
+      <!-- Eval Suite (offline, dashed/async style) -->
+      <rect x="248" y="580" width="200" height="64" rx="6" fill="#2d3142"/>
+      <rect x="248" y="580" width="200" height="64" rx="6" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="256" y="588" width="32" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.22)" stroke-width="0.8"/>
+      <text x="272" y="597" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">EVAL</text>
+      <text x="348" y="616" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Eval Suite</text>
+      <text x="348" y="632" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">golden diff, cache bypassed</text>
+
+      <!-- ============ LEGEND ============ -->
+      <line x1="56" y1="656" x2="1180" y2="656" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
+      <text x="56" y="672" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEGEND</text>
+
+      <rect x="56" y="688" width="14" height="10" rx="2" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
+      <text x="76" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">Focal (graph / data store)</text>
+
+      <rect x="248" y="688" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+      <text x="268" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">In-process component</text>
+
+      <rect x="440" y="688" width="14" height="10" rx="2" fill="rgba(191,192,192,0.10)" stroke="#8e98ac" stroke-width="1"/>
+      <text x="460" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">Entry point</text>
+
+      <rect x="580" y="688" width="14" height="10" rx="2" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
+      <text x="600" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">External service</text>
+
+      <line x1="732" y1="693" x2="760" y2="693" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <text x="768" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">Model call</text>
+
+      <line x1="856" y1="693" x2="884" y2="693" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <text x="892" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">Observability / offline</text>
+
+      <rect x="1060" y="688" width="14" height="10" rx="2" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="1080" y="696" fill="#bfc0c0" font-size="8.5" font-family="'Geist', sans-serif">Dev-time only</text>
+    </svg>
+
+    <div class="colophon">ins-agent &middot; docs/system-components.html &middot; generated with Diagram Design</div>
+  </div>
+</body>
+</html>
