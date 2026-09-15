@@ -22,3 +22,4 @@ data/output/*.txt
 
 # Downloaded font cache (helpers/convert.py)
 helpers/.fonts/
+.claude
