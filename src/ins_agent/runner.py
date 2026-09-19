@@ -46,7 +46,7 @@ def run_to_completion(
     config: RunnableConfig = {
         "configurable": {"thread_id": thread_id},
         "callbacks": [handler],
-        "metadata": {"langfuse_session_name": trace_name or f"triage:{claim_id}"},
+        "metadata": {"langfuse_trace_name": trace_name or f"triage:{claim_id}"},
     }
 
     initial_state: TriageState = {"claim_id": claim_id, "intake": intake}
