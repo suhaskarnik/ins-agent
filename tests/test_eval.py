@@ -7,8 +7,10 @@ itself (which replays a Scenario end-to-end) is exercised the same way as
 import psycopg2
 import pytest
 
+from ins_agent import eval as eval_module
 from ins_agent.config import get_settings
 from ins_agent.eval import (
+    ScenarioEvalOutcome,
     compare_eligibility_judgment,
     compare_sufficiency_assessment,
     evaluate_scenario,
@@ -19,6 +21,7 @@ from ins_agent.scenarios import (
     load_golden_eligibility_judgment,
     load_golden_sufficiency_assessment,
 )
+from tests.conftest import FakeLangfuseClient
 
 
 def test_compare_eligibility_judgment_matches_on_verdict_only():
@@ -83,6 +86,65 @@ def test_compare_sufficiency_assessment_flags_each_mismatched_field():
 
     assert {m.field_name for m in mismatches} == {"sufficient", "missing_documents"}
     assert all(m.step == "sufficiency_assessment" for m in mismatches)
+
+
+def test_record_drift_checks_groups_both_calls_under_one_named_span(monkeypatch):
+    fake_client = FakeLangfuseClient()
+    log = fake_client.log
+    monkeypatch.setattr(eval_module, "get_langfuse_client", lambda: fake_client)
+
+    golden_eligibility = EligibilityJudgment(eligible=True, rationale="golden")
+    golden_sufficiency = SufficiencyAssessment(
+        sufficient=True, missing_documents=[], rationale="golden"
+    )
+    monkeypatch.setattr(
+        eval_module, "load_golden_eligibility_judgment", lambda scenario_id: golden_eligibility
+    )
+    monkeypatch.setattr(
+        eval_module, "load_golden_sufficiency_assessment", lambda scenario_id: golden_sufficiency
+    )
+
+    def fake_run_eligibility_judgment(state, *, bypass_cache):
+        log.append("eligibility_judgment")
+        return golden_eligibility
+
+    def fake_run_sufficiency_assessment(state, *, bypass_cache):
+        log.append("sufficiency_assessment")
+        return golden_sufficiency
+
+    monkeypatch.setattr(eval_module, "run_eligibility_judgment", fake_run_eligibility_judgment)
+    monkeypatch.setattr(eval_module, "run_sufficiency_assessment", fake_run_sufficiency_assessment)
+
+    state = {
+        "eligibility_judgment": golden_eligibility,
+        "sufficiency_assessment": golden_sufficiency,
+    }
+    outcome = ScenarioEvalOutcome(scenario_id="tc003")
+
+    eval_module._record_drift_checks("tc003", state, outcome)
+
+    assert fake_client.observations == [{"name": "eval-drift:tc003", "as_type": "span"}]
+    assert log == [
+        "span_enter:eval-drift:tc003",
+        "eligibility_judgment",
+        "sufficiency_assessment",
+        "span_exit:eval-drift:tc003",
+    ]
+    assert outcome.checked_steps == ["eligibility_judgment", "sufficiency_assessment"]
+    assert outcome.mismatches == []
+
+
+def test_record_drift_checks_skips_the_span_when_eligibility_never_ran(monkeypatch):
+    fake_client = FakeLangfuseClient()
+    monkeypatch.setattr(eval_module, "get_langfuse_client", lambda: fake_client)
+
+    outcome = ScenarioEvalOutcome(scenario_id="tc004")
+    eval_module._record_drift_checks("tc004", {}, outcome)
+
+    assert fake_client.observations == []
+    assert outcome.notes == [
+        "no Policy resolved or Coverage Check failed — Eligibility Judgment never runs"
+    ]
 
 
 def test_golden_loaders_return_none_for_scenarios_that_never_reach_the_step():

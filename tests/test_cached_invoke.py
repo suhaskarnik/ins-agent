@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import groq
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 from ins_agent.llm import cached_invoke as cached_invoke_module
 from ins_agent.llm.cached_invoke import cached_invoke
 from ins_agent.llm.hashing import cache_key
+from tests.conftest import FakeLangfuseClient
 
 
 class DummySchema(BaseModel):
@@ -43,26 +43,6 @@ class FakeChatModel:
     def with_structured_output(self, schema, **kwargs):
         self.with_structured_output_calls.append(schema)
         return FakeStructuredModel(self._invoke_fn)
-
-
-class FakeGeneration:
-    def __init__(self):
-        self.updates: list[dict] = []
-
-    def update(self, **kwargs):
-        self.updates.append(kwargs)
-
-
-class FakeLangfuseClient:
-    def __init__(self):
-        self.observations: list[dict] = []
-        self.last_generation: FakeGeneration | None = None
-
-    @contextmanager
-    def start_as_current_observation(self, **kwargs):
-        self.observations.append(kwargs)
-        self.last_generation = FakeGeneration()
-        yield self.last_generation
 
 
 @pytest.fixture(autouse=True)

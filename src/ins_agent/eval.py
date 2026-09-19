@@ -23,12 +23,14 @@ from ins_agent.graph import build_graph
 from ins_agent.models.triage import EligibilityJudgment, SufficiencyAssessment
 from ins_agent.nodes.docs import run_sufficiency_assessment
 from ins_agent.nodes.eligibility import run_eligibility_judgment
+from ins_agent.observability import get_langfuse_client
 from ins_agent.runner import run_to_completion
 from ins_agent.scenarios import (
     load_golden_eligibility_judgment,
     load_golden_sufficiency_assessment,
     load_scenario,
 )
+from ins_agent.state import TriageState
 
 
 @dataclass
@@ -96,6 +98,58 @@ def compare_sufficiency_assessment(
     return mismatches
 
 
+def _record_drift_checks(
+    scenario_id: str, state: TriageState, outcome: ScenarioEvalOutcome
+) -> None:
+    """Re-invokes Eligibility Judgment / Sufficiency Assessment directly
+    against an already-resolved state, bypassing `cached_invoke`'s cache,
+    and diffs the fresh output against golden output.
+
+    These two direct calls happen outside `graph.invoke()`, so there's no
+    LangChain `CallbackHandler`/trace context for them to nest under —
+    without this span wrapping them, each one surfaces in Langfuse as its
+    own standalone root trace named `cached_invoke` instead of grouping
+    under one named trace per Scenario (ticket 02).
+    """
+    if state.get("eligibility_judgment") is None:
+        outcome.notes.append(
+            "no Policy resolved or Coverage Check failed — Eligibility Judgment never runs"
+        )
+        return
+
+    langfuse = get_langfuse_client()
+    with langfuse.start_as_current_observation(
+        name=f"eval-drift:{scenario_id}", as_type="span"
+    ):
+        golden_eligibility = load_golden_eligibility_judgment(scenario_id)
+        if golden_eligibility is None:
+            outcome.notes.append(
+                "no golden_eligibility_judgment.json recorded for this Scenario"
+            )
+        else:
+            actual_eligibility = run_eligibility_judgment(state, bypass_cache=True)
+            outcome.checked_steps.append("eligibility_judgment")
+            outcome.mismatches += compare_eligibility_judgment(
+                scenario_id, golden_eligibility, actual_eligibility
+            )
+
+        if state.get("sufficiency_assessment") is None:
+            outcome.notes.append("claim was ineligible — Sufficiency Assessment never runs")
+            return
+
+        golden_sufficiency = load_golden_sufficiency_assessment(scenario_id)
+        if golden_sufficiency is None:
+            outcome.notes.append(
+                "no golden_sufficiency_assessment.json recorded for this Scenario"
+            )
+        else:
+            actual_sufficiency = run_sufficiency_assessment(state, bypass_cache=True)
+            outcome.checked_steps.append("sufficiency_assessment")
+            outcome.mismatches += compare_sufficiency_assessment(
+                scenario_id, golden_sufficiency, actual_sufficiency
+            )
+
+
 def evaluate_scenario(scenario_id: str, checkpointer: Any) -> ScenarioEvalOutcome:
     """Replays a Scenario end-to-end (scripted gate responses, normal cache)
     to reach a resolved Policy/Coverage Check, then re-invokes whichever of
@@ -115,34 +169,5 @@ def evaluate_scenario(scenario_id: str, checkpointer: Any) -> ScenarioEvalOutcom
         trace_name=f"eval:{scenario.scenario_id}",
     )
 
-    if state.get("eligibility_judgment") is None:
-        outcome.notes.append(
-            "no Policy resolved or Coverage Check failed — Eligibility Judgment never runs"
-        )
-        return outcome
-
-    golden_eligibility = load_golden_eligibility_judgment(scenario_id)
-    if golden_eligibility is None:
-        outcome.notes.append("no golden_eligibility_judgment.json recorded for this Scenario")
-    else:
-        actual_eligibility = run_eligibility_judgment(state, bypass_cache=True)
-        outcome.checked_steps.append("eligibility_judgment")
-        outcome.mismatches += compare_eligibility_judgment(
-            scenario_id, golden_eligibility, actual_eligibility
-        )
-
-    if state.get("sufficiency_assessment") is None:
-        outcome.notes.append("claim was ineligible — Sufficiency Assessment never runs")
-        return outcome
-
-    golden_sufficiency = load_golden_sufficiency_assessment(scenario_id)
-    if golden_sufficiency is None:
-        outcome.notes.append("no golden_sufficiency_assessment.json recorded for this Scenario")
-    else:
-        actual_sufficiency = run_sufficiency_assessment(state, bypass_cache=True)
-        outcome.checked_steps.append("sufficiency_assessment")
-        outcome.mismatches += compare_sufficiency_assessment(
-            scenario_id, golden_sufficiency, actual_sufficiency
-        )
-
+    _record_drift_checks(scenario_id, state, outcome)
     return outcome
