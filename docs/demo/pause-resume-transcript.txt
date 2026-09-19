@@ -1,0 +1,33 @@
+
+============================================================
+POLICY SELECTION GATE — claim tc003
+============================================================
+Multiple candidate Policies are ambiguously close — pick one, or decline.
+
+[POL-00041] score=0.300
+  holder_name: Jordan Ellison  (match)
+  phone:       212-555-0141  (mismatch)
+  dob:         1979-02-14  (mismatch)
+  address:     88 Corbin Row, Millhaven, OH 44107
+  product:     Auto - Comprehensive  status: active
+  coverage:    2025-01-01 - 2026-01-01, limit 50000.00
+
+[POL-00042] score=0.300
+  holder_name: Jordan Ellison  (match)
+  phone:       212-555-0142  (mismatch)
+  dob:         1991-07-30  (mismatch)
+  address:     410 Preston Alley, Millhaven, OH 44108
+  product:     Auto - Liability  status: active
+  coverage:    2025-01-01 - 2026-01-01, limit 25000.00
+============================================================
+
+--- PAUSED at gate 'policy_selection'. ---
+Process exiting now, as if it crashed or was killed mid-review.
+Run: uv run python .scratch/demo-capture/pause_phase2.py POL-00041
+(POL-00041 is tc003's correct candidate — see data/tests/tc003/gate_responses.json)
+
+    (process has exited — state is now only in Postgres, not memory)
+
+
+Resumed thread 'tc003' in a fresh process.
+Final decision: approve

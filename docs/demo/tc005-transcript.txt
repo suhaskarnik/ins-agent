@@ -1,0 +1,36 @@
+
+============================================================
+FINAL REVIEW GATE — claim tc005
+============================================================
+
+[deterministic fact] Policy Resolution
+  resolved:   True
+  policy_id:  POL-00005
+  confidence: 1.0
+
+[deterministic fact] Coverage Check
+  within coverage limit:  False
+  within coverage window: True
+
+[LLM judgment] Eligibility Judgment
+  not assessed
+
+[LLM judgment] Sufficiency Assessment
+  not assessed
+
+Drafted Notification
+  Subject: Update on Your Auto Insurance Claim – Coverage Review Needed
+  Dear Pamela Romero,
+
+Thank you for submitting your claim for the incident on June 15, 2025. While we have confirmed that your policy is active and resolved, the coverage review for the requested amount of $42,000 did not meet the required criteria. As a result, we are unable to approve the claim in its current form.
+
+Our team will reach out shortly to discuss possible next steps, which may include providing additional documentation or exploring alternative coverage options. Please feel free to contact us at your convenience if you have any questions.
+
+We understand this may be disappointing, and we are committed to assisting you through the process.
+
+Sincerely,
+[Your Insurance Company]
+============================================================
+(scripted response: approve)
+
+Scenario tc005 complete. Final decision: approve

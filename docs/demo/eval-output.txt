@@ -1,0 +1,23 @@
+Judgment Eval Suite — drift check for Eligibility Judgment / Sufficiency Assessment
+====================================================================================
+This is NOT a production eval framework. Specifically, it is not:
+  - a golden set larger than the existing 6 hand-picked Scenarios
+  - human-adjudicated ground truth (the golden output is the original
+    author's judgment at recording time)
+  - drift-over-time tracking (this is a single point-in-time comparison
+    against whatever golden output currently exists)
+  - a source of statistical confidence (pass/fail on individual fields only)
+
+A mismatch below is a signal for a human to review, not a hard regression —
+LLM outputs can legitimately vary in phrasing even when the verdict holds.
+
+[tc001] OK — eligibility_judgment, sufficiency_assessment match golden output
+[tc002] OK — eligibility_judgment, sufficiency_assessment match golden output
+[tc003] OK — eligibility_judgment, sufficiency_assessment match golden output
+[tc004] skipped
+[tc004] note: no Policy resolved or Coverage Check failed — Eligibility Judgment never runs
+[tc005] skipped
+[tc005] note: no Policy resolved or Coverage Check failed — Eligibility Judgment never runs
+[tc006] OK — eligibility_judgment, sufficiency_assessment match golden output
+
+No drift detected.

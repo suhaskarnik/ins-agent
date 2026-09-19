@@ -1,0 +1,60 @@
+
+============================================================
+POLICY SELECTION GATE — claim tc003
+============================================================
+Multiple candidate Policies are ambiguously close — pick one, or decline.
+
+[POL-00041] score=0.300
+  holder_name: Jordan Ellison  (match)
+  phone:       212-555-0141  (mismatch)
+  dob:         1979-02-14  (mismatch)
+  address:     88 Corbin Row, Millhaven, OH 44107
+  product:     Auto - Comprehensive  status: active
+  coverage:    2025-01-01 - 2026-01-01, limit 50000.00
+
+[POL-00042] score=0.300
+  holder_name: Jordan Ellison  (match)
+  phone:       212-555-0142  (mismatch)
+  dob:         1991-07-30  (mismatch)
+  address:     410 Preston Alley, Millhaven, OH 44108
+  product:     Auto - Liability  status: active
+  coverage:    2025-01-01 - 2026-01-01, limit 25000.00
+============================================================
+(scripted response: POL-00041)
+
+============================================================
+FINAL REVIEW GATE — claim tc003
+============================================================
+
+[deterministic fact] Policy Resolution
+  resolved:   True
+  policy_id:  POL-00041
+  confidence: 0.3
+
+[deterministic fact] Coverage Check
+  within coverage limit:  True
+  within coverage window: True
+
+[LLM judgment] Eligibility Judgment
+  eligible:  True
+  rationale: The policy is active, the incident (a side‑mirror damaged by a shopping cart) falls under the Comprehensive coverage type, and the $800 request is reasonable for the described damage. All qualitative criteria are satisfied, so the claim is eligible.
+
+[LLM judgment] Sufficiency Assessment
+  sufficient:         True
+  missing_documents:  []
+  rationale:          All required documents for Auto - Comprehensive (photos and repair_estimate) are present and marked present:true; no injury is indicated, so the submission meets the required-document set.
+
+Drafted Notification
+  Subject: Your Auto Insurance Claim Has Been Approved
+  Dear Jordan Ellison,
+
+We’re pleased to inform you that your auto insurance claim for the incident on June 15, 2025, in the amount of $800.00 has been approved. All checks, including policy coverage, eligibility, and claim sufficiency, have been successfully completed. We will now process the payment, and you can expect to receive the funds within the next 5‑7 business days. If you have any questions, please feel free to contact us.
+
+Thank you for choosing our services.
+
+Sincerely,
+[Your Insurance Company]
+============================================================
+(scripted response: approve)
+
+Scenario tc003 complete. Final decision: approve

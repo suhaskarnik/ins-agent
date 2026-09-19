@@ -53,7 +53,7 @@ Every drafted customer notification is written to `data/output/` as plain text i
 
 ## Status
 
-Design and domain model complete; implementation in progress. This README will gain a demo recording once the pipeline is runnable end-to-end.
+All six scenarios (tc001–tc006), the eval-drift suite, and Langfuse tracing are implemented. See [docs/demo.md](docs/demo.md) for a recorded walkthrough, real traces, and eval output.
 
 ## License
 
