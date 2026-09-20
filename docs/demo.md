@@ -77,10 +77,7 @@ token usage), and cost.
 
 ![Langfuse trace](demo/langfuse-trace.png)
 
-Traces are named `triage:<claim_id>` (ticket 01) and `just eval`'s
-drift-check calls nest under one `eval-drift:<scenario_id>` trace per
-Scenario instead of surfacing as standalone `cached_invoke` traces (ticket
-02) — both fixes are visible in the trace tree above.
+Traces are named `eval:<claim_id>` 
 
 ## Durable human-in-the-loop gates (ADR-0003)
 
@@ -107,7 +104,7 @@ As noted in `.scratch/demo-capture/README.md`, there's no `just resume
 force a real cross-process resume, not `just run`'s single-process
 interrupt loop.
 
-## Eval drift check (ticket 18)
+## Eval drift check
 
 `just eval` re-runs each Scenario's judgment steps against recorded
 golden outputs and flags drift. Not a production eval framework — see
