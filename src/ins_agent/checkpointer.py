@@ -13,7 +13,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 from ins_agent.config import get_settings
-from ins_agent.models.claim import Claim, Document, DocType, IntakeInput, PolicySearchQuery
+from ins_agent.models.claim import Claim, DocType, Document, IntakeInput, PolicySearchQuery
 from ins_agent.models.policy import Policy
 from ins_agent.models.triage import (
     CoverageCheckResult,
