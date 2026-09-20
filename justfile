@@ -32,9 +32,14 @@ run:
 run-scenario SCENARIO:
     uv run python -m ins_agent.cli.run_scenario {{SCENARIO}}
 
-# Run the test suite.
+# Run the test suite, including integration tests (needs `just up && just seed`
+# and working LLM/Langfuse credentials).
 test:
     uv run pytest
+
+# Run only the unit test suite — what CI runs, no live Postgres/LLM/Langfuse needed.
+test-unit:
+    uv run pytest -m "not integration"
 
 # Drift check: re-run the Eligibility Judgment / Sufficiency Assessment
 # steps for each Scenario against their recorded golden outputs. Separate

@@ -40,6 +40,11 @@ line-length = 100
 select = ["E", "F", "I", "UP"]
 ignore = ["UP047"]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: requires live Postgres + LLM provider + Langfuse (run locally, not in CI)",
+]
+
 [tool.mypy]
 python_version = "3.12"
 packages = ["ins_agent"]

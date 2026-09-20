@@ -5,8 +5,10 @@ Postgres + checkpointer, and real LLM calls behind `cached_invoke`) and
 asserts only on the terminal state — never on intermediate node internals.
 
 Requires a running, seeded Postgres and working LLM credentials (see
-`just up` / `just seed`); skipped when either isn't available, since this
-is an integration seam, not a unit-test seam.
+`just up` / `just seed`); skipped when Postgres isn't reachable. Marked
+`integration` and excluded from CI (`pytest -m "not integration"`), since
+CI has no route to a real LLM provider or self-hosted Langfuse instance —
+run these locally instead.
 """
 
 import psycopg2
@@ -32,9 +34,12 @@ def _infra_available() -> bool:
     return True
 
 
-pytestmark = pytest.mark.skipif(
-    not _infra_available(), reason="Postgres unavailable — run `just up && just seed` first"
-)
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not _infra_available(), reason="Postgres unavailable — run `just up && just seed` first"
+    ),
+]
 
 
 @pytest.mark.parametrize("scenario_id", list_scenario_ids())

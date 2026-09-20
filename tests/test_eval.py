@@ -1,7 +1,9 @@
 """Unit tests for the Judgment Eval Suite's comparison logic (ticket 18) —
 the seams that don't require live Postgres/LLM infra. `evaluate_scenario`
 itself (which replays a Scenario end-to-end) is exercised the same way as
-`tests/test_scenarios.py`: skipped when that infra isn't available.
+`tests/test_scenarios.py`: skipped when Postgres isn't available, and
+marked `integration` so CI (which has no real LLM provider or self-hosted
+Langfuse to reach) excludes it via `pytest -m "not integration"`.
 """
 
 import psycopg2
@@ -178,6 +180,7 @@ def _infra_available() -> bool:
     return True
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not _infra_available(), reason="Postgres unavailable — run `just up && just seed` first"
 )
